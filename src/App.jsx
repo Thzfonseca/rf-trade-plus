@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, ReferenceLine } from 'recharts';
 import './App.css';
 
-// Função para calcular valor futuro com reinvestimento
-const calcularValorFuturo = (valorInicial, indexador, taxa, prazo, premissas, horizonte, tipoReinvestimento, taxaReinvestimento) => {
+// Função para calcular valor futuro com reinvestimento e IR
+const calcularValorFuturo = (valorInicial, indexador, taxa, prazo, premissas, horizonte, tipoReinvestimento, taxaReinvestimento, aliquotaIR = 0) => {
   let valor = valorInicial;
   
   // Primeira fase: até o vencimento do ativo
@@ -17,6 +17,13 @@ const calcularValorFuturo = (valorInicial, indexador, taxa, prazo, premissas, ho
     } else if (indexador === 'pre') {
       valor *= (1 + taxa / 100);
     }
+  }
+  
+  // Aplicar IR no vencimento do ativo principal
+  if (prazo <= horizonte && aliquotaIR > 0) {
+    const rendimento = valor - valorInicial;
+    const impostoDevido = rendimento * (aliquotaIR / 100);
+    valor -= impostoDevido;
   }
   
   // Segunda fase: reinvestimento (se necessário)
@@ -56,7 +63,8 @@ const simularMonteCarlo = (ativoAtual, ativoProposto, premissas, horizonte, numS
       premissasVariadas,
       horizonte,
       ativoAtual.tipoReinvestimento,
-      ativoAtual.taxaReinvestimento
+      ativoAtual.taxaReinvestimento,
+      ativoAtual.aliquotaIR
     );
     
     const valorProposto = calcularValorFuturo(
@@ -67,7 +75,8 @@ const simularMonteCarlo = (ativoAtual, ativoProposto, premissas, horizonte, numS
       premissasVariadas,
       horizonte,
       'cdi',
-      100
+      100,
+      ativoProposto.aliquotaIR
     );
     
     resultados.push({
@@ -281,19 +290,21 @@ function App() {
 
   // Estados para ativo atual
   const [ativoAtual, setAtivoAtual] = useState({
-    indexador: 'pre',
-    taxa: 10.5,
-    prazo: 3,
+    indexador: 'ipca',
+    taxa: 9,
+    prazo: 2,
     valorInvestido: 1000000,
     tipoReinvestimento: 'cdi',
-    taxaReinvestimento: 100
+    taxaReinvestimento: 100,
+    aliquotaIR: 0
   });
 
   // Estados para ativo proposto
   const [ativoProposto, setAtivoProposto] = useState({
-    indexador: 'pos',
-    taxa: 105,
-    prazo: 2
+    indexador: 'ipca',
+    taxa: 7.5,
+    prazo: 10,
+    aliquotaIR: 0
   });
 
   const [resultados, setResultados] = useState(null);
@@ -313,7 +324,8 @@ function App() {
       premissas,
       horizonte,
       ativoAtual.tipoReinvestimento,
-      ativoAtual.taxaReinvestimento
+      ativoAtual.taxaReinvestimento,
+      ativoAtual.aliquotaIR
     );
 
     const valorFinalProposto = calcularValorFuturo(
@@ -324,7 +336,8 @@ function App() {
       premissas,
       horizonte,
       'cdi',
-      100
+      100,
+      ativoProposto.aliquotaIR
     );
 
     const vantagem = valorFinalProposto - valorFinalAtual;
@@ -576,6 +589,18 @@ Atenciosamente
                   className="input-field"
                 />
               </div>
+              <div className="input-group">
+                <label>Alíquota IR (%)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="22.5"
+                  value={ativoAtual.aliquotaIR}
+                  onChange={(e) => setAtivoAtual({...ativoAtual, aliquotaIR: parseFloat(e.target.value) || 0})}
+                  className="input-field"
+                />
+              </div>
             </div>
 
             {/* Ativo Proposto */}
@@ -610,6 +635,18 @@ Atenciosamente
                   step="0.5"
                   value={ativoProposto.prazo}
                   onChange={(e) => setAtivoProposto({...ativoProposto, prazo: parseFloat(e.target.value) || 0})}
+                  className="input-field"
+                />
+              </div>
+              <div className="input-group">
+                <label>Alíquota IR (%)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="22.5"
+                  value={ativoProposto.aliquotaIR}
+                  onChange={(e) => setAtivoProposto({...ativoProposto, aliquotaIR: parseFloat(e.target.value) || 0})}
                   className="input-field"
                 />
               </div>
