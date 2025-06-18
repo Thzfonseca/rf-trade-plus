@@ -91,6 +91,28 @@ const simularMonteCarlo = (ativoAtual, ativoProposto, premissas, horizonte, numS
   const desvio = Math.sqrt(diferencas.reduce((acc, val) => acc + Math.pow(val - media, 2), 0) / numSimulacoes);
   const sharpeRatio = desvio > 0 ? media / desvio : 0;
   
+  // Gerar dados para histograma/curva normal
+  const min = Math.min(...diferencas);
+  const max = Math.max(...diferencas);
+  const numBins = 50;
+  const binSize = (max - min) / numBins;
+  
+  const histogramData = [];
+  for (let i = 0; i < numBins; i++) {
+    const binStart = min + i * binSize;
+    const binEnd = binStart + binSize;
+    const count = diferencas.filter(d => d >= binStart && d < binEnd).length;
+    const frequency = count / numSimulacoes;
+    
+    histogramData.push({
+      x: binStart + binSize / 2,
+      frequency: frequency,
+      count: count,
+      // Curva normal teórica
+      normal: (1 / (desvio * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * Math.pow((binStart + binSize / 2 - media) / desvio, 2)) * binSize
+    });
+  }
+  
   return {
     resultados,
     probabilidadeSuperior,
@@ -99,7 +121,8 @@ const simularMonteCarlo = (ativoAtual, ativoProposto, premissas, horizonte, numS
     percentil25,
     percentil75,
     sharpeRatio,
-    desvio
+    desvio,
+    histogramData
   };
 };
 
@@ -191,6 +214,16 @@ const formatarValorMilhoes = (valor) => {
   }
 };
 
+// Função para formatar valores COMPLETOS (sem arredondamento)
+const formatarValorCompleto = (valor) => {
+  return valor.toLocaleString('pt-BR', { 
+    style: 'currency', 
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+};
+
 // Função para formatar percentual - CORRIGIDA
 const formatarPercentual = (valor) => {
   return `${valor.toFixed(1)}%`;
@@ -263,10 +296,12 @@ function App() {
     prazo: 2
   });
 
-  const [horizonte, setHorizonte] = useState(5);
   const [resultados, setResultados] = useState(null);
   const [monteCarlo, setMonteCarlo] = useState(null);
   const [abaAtiva, setAbaAtiva] = useState('resumo');
+
+  // Calcular horizonte automaticamente
+  const horizonte = Math.max(ativoAtual.prazo, ativoProposto.prazo);
 
   const calcularAnalise = () => {
     // Calcular valores finais
@@ -315,12 +350,18 @@ function App() {
     setMonteCarlo(resultadosMonteCarlo);
   };
 
-  // Função para gerar relatório MELHORADO
+  // Função para gerar relatório CORRIGIDO
   const gerarRelatorio = () => {
     if (!resultados || !monteCarlo) return '';
 
     const tendencia = analisarTendenciaPremissas(premissas);
     const indexadorReinvestimento = getTipoReinvestimento(ativoAtual.tipoReinvestimento, ativoAtual.taxaReinvestimento);
+    
+    // Determinar qual ativo tem prazo menor para reinvestimento
+    const ativoMaisCurto = ativoAtual.prazo < ativoProposto.prazo ? 'atual' : 'proposto';
+    const textoReinvestimento = ativoMaisCurto === 'atual' ? 
+      `com reinvestimento em ${indexadorReinvestimento}` : 
+      'com reinvestimento em 100% do CDI';
     
     let recomendacao = '';
     let justificativa = '';
@@ -354,13 +395,13 @@ Nossa análise fundamenta-se em um cenário de ${tendencia}. As premissas macroe
 
 **COMPARAÇÃO DE ESTRATÉGIAS**
 
-**Estratégia Atual:** ${getIndexadorNome(ativoAtual.indexador, ativoAtual.taxa)} por ${ativoAtual.prazo} anos, com reinvestimento em ${indexadorReinvestimento}.
-**Valor Final Projetado:** ${formatarValorMilhoes(resultados.valorFinalAtual)}
+**Estratégia Atual:** ${getIndexadorNome(ativoAtual.indexador, ativoAtual.taxa)} por ${ativoAtual.prazo} anos${ativoAtual.prazo < horizonte ? `, ${textoReinvestimento}` : ''}.
+**Valor Final Projetado:** ${formatarValorCompleto(resultados.valorFinalAtual)}
 
-**Estratégia Proposta:** ${getIndexadorNome(ativoProposto.indexador, ativoProposto.taxa)} por ${ativoProposto.prazo} anos, com reinvestimento em 100% do CDI.
-**Valor Final Projetado:** ${formatarValorMilhoes(resultados.valorFinalProposto)}
+**Estratégia Proposta:** ${getIndexadorNome(ativoProposto.indexador, ativoProposto.taxa)} por ${ativoProposto.prazo} anos${ativoProposto.prazo < horizonte ? ', com reinvestimento em 100% do CDI' : ''}.
+**Valor Final Projetado:** ${formatarValorCompleto(resultados.valorFinalProposto)}
 
-**Vantagem da Estratégia Proposta:** ${formatarValorMilhoes(resultados.vantagem)} (${resultados.vantagemPercentual.toFixed(2)}% total, ${resultados.vantagemAnualizada.toFixed(2)}% a.a.)
+**Vantagem da Estratégia Proposta:** ${formatarValorCompleto(resultados.vantagem)} (${resultados.vantagemPercentual.toFixed(2)}% total, ${resultados.vantagemAnualizada.toFixed(2)}% a.a.)
 
 A análise determinística indica que a estratégia proposta oferece uma vantagem de ${resultados.vantagemAnualizada.toFixed(2)}% ao ano sobre a estratégia atual. Esta vantagem reflete a capacidade da nova estratégia de capturar melhor as oportunidades do cenário macroeconômico projetado.
 
@@ -372,13 +413,13 @@ Para validar nossa análise determinística e quantificar os riscos envolvidos, 
 
 **Resultados da Simulação:**
 - **Probabilidade de Superioridade:** ${monteCarlo.probabilidadeSuperior.toFixed(1)}%
-- **Vantagem Média:** ${formatarValorMilhoes(monteCarlo.media)}
-- **VaR 95% (Pior Cenário):** ${formatarValorMilhoes(monteCarlo.var95)}
+- **Vantagem Média:** ${formatarValorCompleto(monteCarlo.media)}
+- **VaR 95% (Pior Cenário):** ${formatarValorCompleto(monteCarlo.var95)}
 - **Sharpe Ratio:** ${monteCarlo.sharpeRatio.toFixed(2)}
 
 **Interpretação dos Resultados:**
 
-A probabilidade de ${monteCarlo.probabilidadeSuperior.toFixed(1)}% indica que, em ${Math.round(monteCarlo.probabilidadeSuperior/10)*10}% dos cenários simulados, a estratégia proposta supera a atual. O VaR 95% de ${formatarValorMilhoes(monteCarlo.var95)} representa a perda máxima esperada em apenas 5% dos cenários mais adversos.
+A probabilidade de ${monteCarlo.probabilidadeSuperior.toFixed(1)}% indica que, em ${Math.round(monteCarlo.probabilidadeSuperior/10)*10}% dos cenários simulados, a estratégia proposta supera a atual. O VaR 95% de ${formatarValorCompleto(monteCarlo.var95)} representa a perda máxima esperada em apenas 5% dos cenários mais adversos.
 
 O Sharpe Ratio de ${monteCarlo.sharpeRatio.toFixed(2)} ${monteCarlo.sharpeRatio > 1 ? 'indica uma relação risco-retorno excelente' : monteCarlo.sharpeRatio > 0.5 ? 'sugere uma relação risco-retorno adequada' : 'aponta para uma relação risco-retorno que requer cautela'}, considerando a volatilidade dos resultados em relação ao retorno esperado.
 
@@ -403,7 +444,6 @@ Atenciosamente
       <header className="header">
         <div className="header-content">
           <h1 className="header-title">RF TRADE+</h1>
-          <p className="header-subtitle">Análise Profissional de Renda Fixa</p>
         </div>
       </header>
 
@@ -573,14 +613,12 @@ Atenciosamente
                   className="input-field"
                 />
               </div>
-              <div className="input-group">
-                <label>Horizonte de Análise (anos)</label>
-                <input
-                  type="number"
-                  value={horizonte}
-                  onChange={(e) => setHorizonte(parseInt(e.target.value) || 5)}
-                  className="input-field"
-                />
+              <div className="info-display">
+                <label>Horizonte de Análise</label>
+                <div className="horizonte-info">
+                  <span className="horizonte-value">{horizonte} anos</span>
+                  <span className="horizonte-desc">(Prazo do ativo mais longo)</span>
+                </div>
               </div>
             </div>
           </div>
@@ -635,17 +673,17 @@ Atenciosamente
                   <div className="metrics-grid">
                     <div className="metric-card">
                       <h4>Estratégia Atual</h4>
-                      <p className="metric-value">{formatarValorMilhoes(resultados.valorFinalAtual)}</p>
+                      <p className="metric-value">{formatarValorCompleto(resultados.valorFinalAtual)}</p>
                       <p className="metric-label">{getIndexadorNome(ativoAtual.indexador, ativoAtual.taxa)}</p>
                     </div>
                     <div className="metric-card">
                       <h4>Estratégia Proposta</h4>
-                      <p className="metric-value">{formatarValorMilhoes(resultados.valorFinalProposto)}</p>
+                      <p className="metric-value">{formatarValorCompleto(resultados.valorFinalProposto)}</p>
                       <p className="metric-label">{getIndexadorNome(ativoProposto.indexador, ativoProposto.taxa)}</p>
                     </div>
                     <div className="metric-card highlight">
                       <h4>Vantagem</h4>
-                      <p className="metric-value">{formatarValorMilhoes(resultados.vantagem)}</p>
+                      <p className="metric-value">{formatarValorCompleto(resultados.vantagem)}</p>
                       <p className="metric-label">{resultados.vantagemAnualizada.toFixed(2)}% a.a.</p>
                     </div>
                     <div className="metric-card">
@@ -673,7 +711,7 @@ Atenciosamente
                           width={80}
                         />
                         <Tooltip 
-                          formatter={(value) => [formatarValorMilhoes(value), '']}
+                          formatter={(value) => [formatarValorCompleto(value), '']}
                           contentStyle={{
                             backgroundColor: 'white',
                             border: '1px solid #e2e8f0',
@@ -761,6 +799,57 @@ Atenciosamente
                 <div className="montecarlo-content">
                   <h3>Análise de Simulação Monte Carlo</h3>
                   
+                  {/* Gráfico de Distribuição */}
+                  <div className="chart-container">
+                    <h4>Distribuição de Resultados (10.000 Simulações)</h4>
+                    <ResponsiveContainer width="100%" height={400}>
+                      <BarChart data={monteCarlo.histogramData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                        <XAxis 
+                          dataKey="x" 
+                          stroke="#64748b" 
+                          fontSize={11}
+                          tickFormatter={formatarValorMilhoes}
+                        />
+                        <YAxis 
+                          stroke="#64748b" 
+                          fontSize={11}
+                          tickFormatter={(value) => `${(value * 100).toFixed(1)}%`}
+                          width={60}
+                        />
+                        <Tooltip 
+                          formatter={(value, name) => [
+                            name === 'frequency' ? `${(value * 100).toFixed(2)}%` : value.toFixed(4),
+                            name === 'frequency' ? 'Frequência' : 'Curva Normal'
+                          ]}
+                          labelFormatter={(value) => `Diferença: ${formatarValorMilhoes(value)}`}
+                          contentStyle={{
+                            backgroundColor: 'white',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '8px',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                            fontSize: '12px'
+                          }}
+                        />
+                        <Legend />
+                        <Bar 
+                          dataKey="frequency" 
+                          fill="#3b82f6" 
+                          fillOpacity={0.7}
+                          name="Frequência Observada"
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="normal" 
+                          stroke="#ef4444" 
+                          strokeWidth={2}
+                          name="Curva Normal Teórica"
+                          dot={false}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  
                   <div className="monte-carlo-explanation">
                     <div className="explanation-section">
                       <h4>🎯 Por que usar Simulação Monte Carlo?</h4>
@@ -811,10 +900,10 @@ Atenciosamente
                         </div>
 
                         <div className="metric-explanation">
-                          <h5>⚠️ VaR 95%: {formatarValorMilhoes(monteCarlo.var95)}</h5>
+                          <h5>⚠️ VaR 95%: {formatarValorCompleto(monteCarlo.var95)}</h5>
                           <p>
                             <strong>O que significa:</strong> Value at Risk - no pior cenário (5% de probabilidade), 
-                            a perda máxima seria de {formatarValorMilhoes(Math.abs(monteCarlo.var95))}.
+                            a perda máxima seria de {formatarValorCompleto(Math.abs(monteCarlo.var95))}.
                           </p>
                           <p>
                             <strong>Exemplo prático:</strong> É como dizer "há 95% de chance de que o resultado seja melhor que isso". 
@@ -867,11 +956,11 @@ Atenciosamente
                     </div>
                     <div className="stat-card">
                       <h4>Vantagem Média</h4>
-                      <p className="stat-value">{formatarValorMilhoes(monteCarlo.media)}</p>
+                      <p className="stat-value">{formatarValorCompleto(monteCarlo.media)}</p>
                     </div>
                     <div className="stat-card">
                       <h4>VaR 95%</h4>
-                      <p className="stat-value">{formatarValorMilhoes(monteCarlo.var95)}</p>
+                      <p className="stat-value">{formatarValorCompleto(monteCarlo.var95)}</p>
                     </div>
                     <div className="stat-card">
                       <h4>Sharpe Ratio</h4>
