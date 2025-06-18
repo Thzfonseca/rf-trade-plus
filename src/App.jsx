@@ -909,9 +909,11 @@ Atenciosamente`;
                       </div>
                       
                       <p>
-                        Para reinvestimento, consideramos {ativoAtual.taxaReinvestimento}% do CDI para ativos 
-                        pós-fixados, IPCA + {premissasReinvestimento.ipca}% para indexados à inflação, 
-                        e {premissasReinvestimento.pre}% a.a. para pré-fixados.
+                        Para reinvestimento, consideramos {ativoAtual.tipoReinvestimento === 'cdi' ? 
+                        `${ativoAtual.taxaReinvestimento}% do CDI` : 
+                        ativoAtual.tipoReinvestimento === 'ipca' ? 
+                        `IPCA + ${ativoAtual.taxaReinvestimento}%` : 
+                        `${ativoAtual.taxaReinvestimento}% a.a. pré-fixado`} após o vencimento do ativo atual.
                       </p>
                     </div>
 
