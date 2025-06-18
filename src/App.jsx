@@ -1027,6 +1027,12 @@ Atenciosamente
           </div>
         )}
       </main>
+
+      <footer className="footer">
+        <div className="footer-content">
+          <p>Desenvolvido por Thomaz Fonseca</p>
+        </div>
+      </footer>
     </div>
   );
 }
