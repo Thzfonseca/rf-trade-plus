@@ -2,6 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine, BarChart, Bar, PieChart, Pie, Cell, RadialBarChart, RadialBar, AreaChart, Area, ComposedChart } from 'recharts';
 import './App.css';
 
+// Função para calcular valor presente
+const calcularValorPresente = (valorFuturo, premissasCDI, horizonte) => {
+  let fatorDesconto = 1;
+  
+  for (let ano = 1; ano <= horizonte; ano++) {
+    const cdiAno = premissasCDI[Math.min(ano - 1, premissasCDI.length - 1)];
+    fatorDesconto *= (1 + cdiAno / 100);
+  }
+  
+  return valorFuturo / fatorDesconto;
+};
+
 // Função para copiar gráfico como imagem
 const copiarGrafico = async (chartId) => {
   try {
@@ -529,10 +541,14 @@ function App() {
     // Gerar dados de sensibilidade
     const dadosSensibilidade = gerarDadosSensibilidade(ativoAtual, ativoProposto, premissas, horizonte);
 
+    // Calcular valor presente da vantagem
+    const vantagemValorPresente = calcularValorPresente(vantagem, premissas.cdi, horizonte);
+
     setResultados({
       valorFinalAtual,
       valorFinalProposto,
       vantagem,
+      vantagemValorPresente,
       vantagemPercentual,
       vantagemAnualizada,
       dadosEvolucao,
@@ -822,6 +838,11 @@ function App() {
                         <h4>Resultado Esperado</h4>
                         <div className="metric-value">{formatarValor(resultados.vantagem)}</div>
                         <div className="metric-label">Diferença em {horizonte} anos</div>
+                      </div>
+                      <div className="metric-card">
+                        <h4>Valor Presente do Ganho</h4>
+                        <div className="metric-value">{formatarValor(resultados.vantagemValorPresente)}</div>
+                        <div className="metric-label">Valor presente da vantagem</div>
                       </div>
                       <div className="metric-card">
                         <h4>Vantagem Anualizada</h4>
