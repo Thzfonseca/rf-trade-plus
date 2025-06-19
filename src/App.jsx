@@ -1261,7 +1261,7 @@ function App() {
                               <Legend />
                               <Line 
                                 type="monotone" 
-                                dataKey="estrategiaAtual" 
+                                dataKey="atual" 
                                 stroke="#64748b" 
                                 strokeWidth={3}
                                 name="Estratégia Atual"
@@ -1270,7 +1270,7 @@ function App() {
                               />
                               <Line 
                                 type="monotone" 
-                                dataKey="estrategiaProposta" 
+                                dataKey="proposto" 
                                 stroke="#1e293b" 
                                 strokeWidth={3}
                                 name="Estratégia Proposta"
@@ -1327,7 +1327,7 @@ function App() {
                               <Legend />
                               <Line 
                                 type="monotone" 
-                                dataKey="rentabilidadeAtual" 
+                                dataKey="atual" 
                                 stroke="#64748b" 
                                 strokeWidth={3}
                                 name="Rentabilidade Atual"
@@ -1336,7 +1336,7 @@ function App() {
                               />
                               <Line 
                                 type="monotone" 
-                                dataKey="rentabilidadeProposta" 
+                                dataKey="proposto" 
                                 stroke="#1e293b" 
                                 strokeWidth={3}
                                 name="Rentabilidade Proposta"
@@ -1709,12 +1709,12 @@ function App() {
                         </p>
                       )}
 
-                      {cenarios && (
+                      {cenarios && cenarios.economicos && (
                         <p>
-                          <strong>Análise de Cenários:</strong> Dos {cenarios.length} cenários econômicos testados, 
-                          {cenarios.filter(c => c.resultadoFavoravel).length} apresentam resultados favoráveis à migração. 
+                          <strong>Análise de Cenários:</strong> Dos {cenarios.economicos.length} cenários econômicos testados, 
+                          {cenarios.economicos.filter(c => c.resultadoFavoravel).length} apresentam resultados favoráveis à migração. 
                           A probabilidade ponderada de resultado superior, considerando as probabilidades históricas de cada cenário, 
-                          é de {formatarPercentual(cenarios.reduce((acc, c) => acc + (c.resultadoFavoravel ? c.probabilidade : 0), 0))}.
+                          é de {formatarPercentual(cenarios.economicos.reduce((acc, c) => acc + (c.resultadoFavoravel ? c.probabilidade : 0), 0))}.
                         </p>
                       )}
 
