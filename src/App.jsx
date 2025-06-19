@@ -195,6 +195,10 @@ const gerarDadosGraficos = (ativoAtual, ativoProposto, premissas, horizonte) => 
       const rentabilidadeAtual = ((valorAtual / ativoAtual.valorInvestido) - 1) * 100;
       const rentabilidadeProposta = ((valorProposto / ativoAtual.valorInvestido) - 1) * 100;
       
+      // Calcular rentabilidade anualizada acumulada
+      const rentabilidadeAnualizadaAtual = ano > 0 ? (Math.pow(valorAtual / ativoAtual.valorInvestido, 1/ano) - 1) * 100 : 0;
+      const rentabilidadeAnualizadaProposta = ano > 0 ? (Math.pow(valorProposto / ativoAtual.valorInvestido, 1/ano) - 1) * 100 : 0;
+      
       dadosEvolucao.push({
         ano: `Ano ${ano}`,
         atual: valorAtual,
@@ -203,8 +207,8 @@ const gerarDadosGraficos = (ativoAtual, ativoProposto, premissas, horizonte) => 
       
       dadosRentabilidade.push({
         ano: `Ano ${ano}`,
-        atual: rentabilidadeAtual,
-        proposto: rentabilidadeProposta
+        atual: rentabilidadeAnualizadaAtual,
+        proposto: rentabilidadeAnualizadaProposta
       });
     }
   }
@@ -787,7 +791,7 @@ Atenciosamente
                   </div>
 
                   <div className="chart-container">
-                    <h4>Rentabilidade Acumulada</h4>
+                    <h4>Rentabilidade Anualizada Acumulada</h4>
                     <ResponsiveContainer width="100%" height={400}>
                       <LineChart data={resultados.dadosRentabilidade}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
