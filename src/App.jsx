@@ -374,6 +374,272 @@ const gerarCenariosEconomicos = (ativoAtual, ativoProposto, premissas, horizonte
   return resultados;
 };
 
+// Função para gerar cenários de curva de juros dinâmicos
+const gerarCenariosCurvaJuros = (ativoAtual, ativoProposto, premissas, horizonte) => {
+  const cenarios = [
+    {
+      id: 'base',
+      nome: 'Cenário Base',
+      descricao: 'Premissas atuais mantidas ao longo do horizonte',
+      probabilidade: 25,
+      movimento: 'Estável',
+      timeline: 'Trajetória gradual conforme premissas inseridas',
+      premissasModificadas: premissas,
+      detalhesMovimento: {
+        tipo: 'base',
+        intensidade: 0,
+        timing: 'N/A'
+      }
+    },
+    {
+      id: 'paralelo_alta',
+      nome: 'Movimento Paralelo para Cima',
+      descricao: 'Todos os vértices da curva sobem uniformemente devido a pressões inflacionárias',
+      probabilidade: 20,
+      movimento: 'Paralelo +200bps',
+      timeline: 'Ano 1: +50bps, Ano 2: +100bps, Ano 3-4: +150bps, Ano 5+: +200bps',
+      premissasModificadas: {
+        cdi: premissas.cdi.map((taxa, i) => {
+          const incremento = i === 0 ? 0.5 : i === 1 ? 1 : i <= 3 ? 1.5 : 2;
+          return taxa + incremento;
+        }),
+        ipca: premissas.ipca.map((taxa, i) => {
+          const incremento = i === 0 ? 0.3 : i === 1 ? 0.6 : i <= 3 ? 0.9 : 1.2;
+          return taxa + incremento;
+        })
+      },
+      detalhesMovimento: {
+        tipo: 'paralelo',
+        intensidade: 200,
+        timing: 'Gradual ao longo de 5 anos',
+        gatilhos: ['Pressão inflacionária persistente', 'Política fiscal expansionista', 'Choque de commodities']
+      }
+    },
+    {
+      id: 'paralelo_baixa',
+      nome: 'Movimento Paralelo para Baixo',
+      descricao: 'Todos os vértices da curva caem devido a desaceleração econômica',
+      probabilidade: 20,
+      movimento: 'Paralelo -150bps',
+      timeline: 'Ano 1: -25bps, Ano 2: -75bps, Ano 3-4: -125bps, Ano 5+: -150bps',
+      premissasModificadas: {
+        cdi: premissas.cdi.map((taxa, i) => {
+          const decremento = i === 0 ? 0.25 : i === 1 ? 0.75 : i <= 3 ? 1.25 : 1.5;
+          return Math.max(2, taxa - decremento);
+        }),
+        ipca: premissas.ipca.map((taxa, i) => {
+          const decremento = i === 0 ? 0.2 : i === 1 ? 0.5 : i <= 3 ? 0.8 : 1;
+          return Math.max(1.5, taxa - decremento);
+        })
+      },
+      detalhesMovimento: {
+        tipo: 'paralelo',
+        intensidade: -150,
+        timing: 'Gradual ao longo de 5 anos',
+        gatilhos: ['Recessão econômica', 'Desinflação estrutural', 'Política monetária acomodatícia']
+      }
+    },
+    {
+      id: 'steepening',
+      nome: 'Steepening (Inclinação)',
+      descricao: 'Curva se inclina: curto cai por cortes de juros, longo sobe por expectativas inflacionárias',
+      probabilidade: 15,
+      movimento: 'Curto -100bps, Longo +150bps',
+      timeline: 'Ano 1-2: Divergência inicial, Ano 3-4: Máxima inclinação, Ano 5+: Estabilização',
+      premissasModificadas: {
+        cdi: premissas.cdi.map((taxa, i) => {
+          if (i <= 1) return Math.max(2, taxa - 1); // Curto prazo cai
+          if (i <= 3) return taxa + 0.5; // Médio prazo neutro
+          return taxa + 1.5; // Longo prazo sobe
+        }),
+        ipca: premissas.ipca.map((taxa, i) => {
+          if (i <= 1) return Math.max(1.5, taxa - 0.5);
+          if (i <= 3) return taxa + 0.3;
+          return taxa + 1;
+        })
+      },
+      detalhesMovimento: {
+        tipo: 'steepening',
+        intensidade: 250, // Diferencial entre curto e longo
+        timing: 'Divergência nos primeiros 2 anos, estabilização após',
+        gatilhos: ['Cortes de juros no curto prazo', 'Expectativas inflacionárias de longo prazo', 'Política fiscal expansionista futura']
+      }
+    },
+    {
+      id: 'flattening',
+      nome: 'Flattening (Achatamento)',
+      descricao: 'Curva se achata: curto sobe por aperto monetário, longo cai por expectativas de recessão',
+      probabilidade: 15,
+      movimento: 'Curto +150bps, Longo -100bps',
+      timeline: 'Ano 1-2: Convergência inicial, Ano 3-4: Máximo achatamento, Ano 5+: Normalização',
+      premissasModificadas: {
+        cdi: premissas.cdi.map((taxa, i) => {
+          if (i <= 1) return taxa + 1.5; // Curto prazo sobe
+          if (i <= 3) return taxa + 0.2; // Médio prazo neutro
+          return Math.max(2, taxa - 1); // Longo prazo cai
+        }),
+        ipca: premissas.ipca.map((taxa, i) => {
+          if (i <= 1) return taxa + 1;
+          if (i <= 3) return taxa + 0.1;
+          return Math.max(1.5, taxa - 0.5);
+        })
+      },
+      detalhesMovimento: {
+        tipo: 'flattening',
+        intensidade: -250, // Diferencial negativo entre curto e longo
+        timing: 'Convergência nos primeiros 2 anos, normalização gradual',
+        gatilhos: ['Aperto monetário agressivo', 'Expectativas de recessão futura', 'Inversão de expectativas inflacionárias']
+      }
+    },
+    {
+      id: 'twist',
+      nome: 'Twist (Torção)',
+      descricao: 'Meio da curva se move diferente das pontas: barriga da curva sobe, pontas estáveis',
+      probabilidade: 5,
+      movimento: 'Pontas estáveis, Meio +100bps',
+      timeline: 'Ano 1-3: Formação da torção, Ano 4-5: Manutenção, Ano 6+: Normalização',
+      premissasModificadas: {
+        cdi: premissas.cdi.map((taxa, i) => {
+          if (i === 0 || i === 4) return taxa; // Pontas estáveis
+          return taxa + 1; // Meio sobe
+        }),
+        ipca: premissas.ipca.map((taxa, i) => {
+          if (i === 0 || i === 4) return taxa;
+          return taxa + 0.6;
+        })
+      },
+      detalhesMovimento: {
+        tipo: 'twist',
+        intensidade: 100,
+        timing: 'Formação em 3 anos, manutenção por 2 anos',
+        gatilhos: ['Operações de twist do Banco Central', 'Demanda específica por títulos de médio prazo', 'Arbitragem de duration']
+      }
+    }
+  ];
+
+  return cenarios.map(cenario => {
+    // Identificar qual ativo vence primeiro para reinvestimento
+    const ativoMaisCurto = ativoAtual.prazo < ativoProposto.prazo ? ativoAtual : ativoProposto;
+    const taxasReinvestimento = ativoMaisCurto === ativoAtual ? 
+      { cdi: ativoAtual.taxaReinvestimentoCDI || 100, ipca: ativoAtual.taxaReinvestimentoIPCA || 6, pre: ativoAtual.taxaReinvestimentoPre || 12 } :
+      { cdi: 100, ipca: 6, pre: 12 };
+
+    const valorFinalAtual = calcularValorFuturo(
+      ativoAtual.valorInvestido,
+      ativoAtual.indexador,
+      ativoAtual.taxa,
+      ativoAtual.prazo,
+      cenario.premissasModificadas,
+      horizonte,
+      ativoAtual.tipoReinvestimento,
+      taxasReinvestimento,
+      ativoAtual.aliquotaIR
+    );
+
+    const valorFinalProposto = calcularValorFuturo(
+      ativoAtual.valorInvestido,
+      ativoProposto.indexador,
+      ativoProposto.taxa,
+      ativoProposto.prazo,
+      cenario.premissasModificadas,
+      horizonte,
+      'cdi',
+      { cdi: 100, ipca: 6, pre: 12 },
+      ativoProposto.aliquotaIR
+    );
+
+    const vantagem = valorFinalProposto - valorFinalAtual;
+    const vantagemAnualizada = (Math.pow(valorFinalProposto / valorFinalAtual, 1/horizonte) - 1) * 100;
+
+    // Análise de duração e convexidade
+    const duracaoAtual = calcularDuracao(ativoAtual, cenario.premissasModificadas);
+    const duracaoProposto = calcularDuracao(ativoProposto, cenario.premissasModificadas);
+    
+    // Análise de carry vs roll-down
+    const carryAtual = calcularCarry(ativoAtual, cenario.premissasModificadas);
+    const carryProposto = calcularCarry(ativoProposto, cenario.premissasModificadas);
+
+    // Análise de timing de reinvestimento
+    const momentoReinvestimento = ativoMaisCurto.prazo;
+    const taxaReinvestimentoNoMomento = cenario.premissasModificadas.cdi[Math.min(momentoReinvestimento - 1, cenario.premissasModificadas.cdi.length - 1)];
+
+    return {
+      ...cenario,
+      valorFinalAtual,
+      valorFinalProposto,
+      vantagem,
+      vantagemAnualizada,
+      resultadoFavoravel: vantagem > 0,
+      impacto: Math.abs(vantagem) > 100000 ? 'Alto' : Math.abs(vantagem) > 50000 ? 'Médio' : 'Baixo',
+      duracaoAtual,
+      duracaoProposto,
+      carryAtual,
+      carryProposto,
+      sensibilidadeJuros: Math.abs(duracaoAtual - duracaoProposto) > 1 ? 'Alta' : 'Moderada',
+      momentoReinvestimento,
+      taxaReinvestimentoNoMomento,
+      impactoTiming: calcularImpactoTiming(cenario, ativoMaisCurto, horizonte)
+    };
+  });
+};
+
+// Função para calcular impacto do timing
+const calcularImpactoTiming = (cenario, ativoMaisCurto, horizonte) => {
+  const momentoReinvestimento = ativoMaisCurto.prazo;
+  const taxaInicial = cenario.premissasModificadas.cdi[0];
+  const taxaNoMomento = cenario.premissasModificadas.cdi[Math.min(momentoReinvestimento - 1, cenario.premissasModificadas.cdi.length - 1)];
+  const taxaFinal = cenario.premissasModificadas.cdi[cenario.premissasModificadas.cdi.length - 1];
+  
+  const diferencaInicial = taxaNoMomento - taxaInicial;
+  const diferencaFinal = taxaFinal - taxaNoMomento;
+  
+  return {
+    momentoReinvestimento,
+    taxaInicial,
+    taxaNoMomento,
+    taxaFinal,
+    diferencaInicial,
+    diferencaFinal,
+    favorabilidade: diferencaFinal > 0 ? 'Favorável' : diferencaFinal < 0 ? 'Desfavorável' : 'Neutro'
+  };
+};
+
+// Função para calcular duração modificada aproximada
+const calcularDuracao = (ativo, premissas) => {
+  if (ativo.indexador === 'pre') {
+    return ativo.prazo * 0.9; // Aproximação para pré-fixado
+  } else {
+    return ativo.prazo * 0.3; // Aproximação para pós-fixado
+  }
+};
+
+// Função para calcular carry anualizado
+const calcularCarry = (ativo, premissas) => {
+  const taxaMedia = premissas.cdi.reduce((a, b) => a + b, 0) / premissas.cdi.length;
+  if (ativo.indexador === 'cdi') {
+    return (ativo.taxa / 100) * taxaMedia;
+  } else if (ativo.indexador === 'ipca') {
+    const ipcaMedia = premissas.ipca.reduce((a, b) => a + b, 0) / premissas.ipca.length;
+    return ativo.taxa + ipcaMedia;
+  } else {
+    return ativo.taxa;
+  }
+};
+
+// Função para gerar dados de visualização da curva de juros
+const gerarDadosCurvaJuros = (cenarios) => {
+  const vertices = ['1A', '2A', '3A', '5A', '10A'];
+  
+  return cenarios.map(cenario => ({
+    nome: cenario.nome,
+    dados: vertices.map((vertice, i) => ({
+      vertice,
+      cdi: cenario.premissasModificadas.cdi[i] || cenario.premissasModificadas.cdi[cenario.premissasModificadas.cdi.length - 1],
+      ipca: cenario.premissasModificadas.ipca[i] || cenario.premissasModificadas.ipca[cenario.premissasModificadas.ipca.length - 1]
+    }))
+  }));
+};
+
 // Função para analisar tendência das premissas
 const analisarTendenciaPremissas = (premissas) => {
   const cdiInicial = premissas.cdi[0];
@@ -489,8 +755,9 @@ function App() {
     // Simular Monte Carlo
     const resultadosMonteCarlo = simularMonteCarloAvancado(ativoAtual, ativoProposto, premissas, horizonte);
 
-    // Calcular breakeven
-    const taxaBreakeven = calcularBreakeven(ativoAtual, ativoProposto, premissas, horizonte);
+    // Gerar análise de cenários de curva de juros
+    const cenariosCurva = gerarCenariosCurvaJuros(ativoAtual, ativoProposto, premissas, horizonte);
+    const dadosCurvaJuros = gerarDadosCurvaJuros(cenariosCurva);
 
     // Gerar cenários
     const cenariosEconomicos = gerarCenariosEconomicos(ativoAtual, ativoProposto, premissas, horizonte);
@@ -508,7 +775,7 @@ function App() {
 
     setMonteCarlo(resultadosMonteCarlo);
     setBreakeven(taxaBreakeven);
-    setCenarios(cenariosEconomicos);
+    setCenarios({ economicos: cenariosEconomicos, curvaJuros: cenariosCurva, dadosCurva: dadosCurvaJuros });
   };
 
   return (
@@ -999,95 +1266,196 @@ function App() {
                 {abaAtiva === 'cenarios' && cenarios && (
                   <div className="cenarios-content">
                     <div className="cenarios-intro">
-                      <h3>🎯 Análise de Cenários Econômicos</h3>
+                      <h3>Análise de Cenários de Curva de Juros</h3>
                       <p>
-                        Avaliação da estratégia em 4 cenários macroeconômicos distintos, com probabilidades baseadas 
-                        em análises históricas da economia brasileira. Cada cenário testa como variações nas taxas 
-                        de juros e inflação afetam o resultado da decisão de investimento.
+                        Avaliação da estratégia considerando diferentes movimentos da curva de juros ao longo do tempo. 
+                        Cada cenário simula como mudanças de nível e inclinação da curva afetam o resultado da decisão de investimento.
                       </p>
                     </div>
 
-                    <div className="cenarios-grid">
-                      {cenarios.map((cenario, index) => (
-                        <div key={index} className="cenario-card">
-                          <div className="cenario-header">
-                            <span className="cenario-emoji">{cenario.emoji}</span>
-                            <div className="cenario-info">
-                              <h4>{cenario.nome}</h4>
-                              <p>{cenario.descricao}</p>
-                              <span className="probabilidade">Probabilidade histórica: {cenario.probabilidade}%</span>
-                            </div>
-                          </div>
-                          
-                          <div className="cenario-metrics">
-                            <div className="metric-row">
-                              <span className="metric-label">CDI</span>
-                              <span className="metric-value">{formatarPercentual(cenario.cdi)}</span>
-                            </div>
-                            <div className="metric-row">
-                              <span className="metric-label">IPCA</span>
-                              <span className="metric-value">{formatarPercentual(cenario.ipca)}</span>
-                            </div>
-                            <div className="metric-row">
-                              <span className="metric-label">Resultado</span>
-                              <span className="metric-value">{formatarValor(cenario.vantagem)}</span>
-                            </div>
-                            <div className="metric-row">
-                              <span className="metric-label">Vantagem Anual</span>
-                              <span className="metric-value">{formatarPercentual(cenario.vantagemAnualizada)}</span>
-                            </div>
-                            <div className="metric-row">
-                              <span className="metric-label">Impacto</span>
-                              <span className="metric-value">{cenario.impacto}</span>
-                            </div>
+                    <div className="cenarios-visualization">
+                      <div className="curva-charts-section">
+                        <h4>Evolução da Curva de Juros por Cenário</h4>
+                        <div className="curva-charts-grid">
+                          <div className="chart-container">
+                            <h5>CDI - Evolução por Cenário</h5>
+                            <ResponsiveContainer width="100%" height={300}>
+                              <LineChart>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="ano" domain={[1, 5]} type="number" />
+                                <YAxis domain={['dataMin - 1', 'dataMax + 1']} tickFormatter={formatarPercentual} />
+                                <Tooltip formatter={(value) => [`${value.toFixed(1)}%`, 'CDI']} />
+                                <Legend />
+                                {cenarios.curvaJuros.map((cenario, index) => (
+                                  <Line 
+                                    key={cenario.id}
+                                    type="monotone" 
+                                    dataKey="cdi"
+                                    data={cenario.premissasModificadas.cdi.map((taxa, i) => ({ ano: i + 1, cdi: taxa }))}
+                                    stroke={['#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6', '#06b6d4'][index]}
+                                    strokeWidth={2}
+                                    name={cenario.nome}
+                                  />
+                                ))}
+                              </LineChart>
+                            </ResponsiveContainer>
                           </div>
 
-                          <div className="resultado-indicator">
-                            <span className={`resultado-badge ${cenario.resultadoFavoravel ? 'positivo' : 'negativo'}`}>
-                              {cenario.resultadoFavoravel ? 'Resultado Favorável' : 'Resultado Desfavorável'}
-                            </span>
+                          <div className="chart-container">
+                            <h5>IPCA - Evolução por Cenário</h5>
+                            <ResponsiveContainer width="100%" height={300}>
+                              <LineChart>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="ano" domain={[1, 5]} type="number" />
+                                <YAxis domain={['dataMin - 0.5', 'dataMax + 0.5']} tickFormatter={formatarPercentual} />
+                                <Tooltip formatter={(value) => [`${value.toFixed(1)}%`, 'IPCA']} />
+                                <Legend />
+                                {cenarios.curvaJuros.map((cenario, index) => (
+                                  <Line 
+                                    key={cenario.id}
+                                    type="monotone" 
+                                    dataKey="ipca"
+                                    data={cenario.premissasModificadas.ipca.map((taxa, i) => ({ ano: i + 1, ipca: taxa }))}
+                                    stroke={['#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6', '#06b6d4'][index]}
+                                    strokeWidth={2}
+                                    name={cenario.nome}
+                                  />
+                                ))}
+                              </LineChart>
+                            </ResponsiveContainer>
                           </div>
                         </div>
-                      ))}
+                      </div>
+
+                      <div className="cenarios-timing-analysis">
+                        <h4>Análise de Timing e Impacto</h4>
+                        <div className="timing-grid">
+                          {cenarios.curvaJuros.map((cenario, index) => (
+                            <div key={index} className="timing-card">
+                              <div className="timing-header">
+                                <h5>{cenario.nome}</h5>
+                                <span className={`resultado-badge ${cenario.resultadoFavoravel ? 'favoravel' : 'desfavoravel'}`}>
+                                  {cenario.resultadoFavoravel ? 'Favorável' : 'Desfavorável'}
+                                </span>
+                              </div>
+                              
+                              <div className="timing-details">
+                                <div className="timing-row">
+                                  <span className="label">Probabilidade:</span>
+                                  <span className="value">{cenario.probabilidade}%</span>
+                                </div>
+                                <div className="timing-row">
+                                  <span className="label">Movimento:</span>
+                                  <span className="value">{cenario.movimento}</span>
+                                </div>
+                                <div className="timing-row">
+                                  <span className="label">Vantagem Anualizada:</span>
+                                  <span className={`value ${cenario.vantagemAnualizada > 0 ? 'positive' : 'negative'}`}>
+                                    {cenario.vantagemAnualizada > 0 ? '+' : ''}{cenario.vantagemAnualizada.toFixed(2)}% a.a.
+                                  </span>
+                                </div>
+                                <div className="timing-row">
+                                  <span className="label">Impacto Financeiro:</span>
+                                  <span className={`value ${cenario.vantagem > 0 ? 'positive' : 'negative'}`}>
+                                    {formatarValor(cenario.vantagem)}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="timeline-section">
+                                <h6>Timeline de Mudanças</h6>
+                                <p className="timeline-text">{cenario.timeline}</p>
+                              </div>
+
+                              {cenario.detalhesMovimento && cenario.detalhesMovimento.gatilhos && (
+                                <div className="gatilhos-section">
+                                  <h6>Gatilhos Econômicos</h6>
+                                  <ul className="gatilhos-list">
+                                    {cenario.detalhesMovimento.gatilhos.map((gatilho, i) => (
+                                      <li key={i}>{gatilho}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+
+                              {cenario.impactoTiming && (
+                                <div className="reinvestimento-section">
+                                  <h6>Impacto do Timing de Reinvestimento</h6>
+                                  <div className="reinvestimento-details">
+                                    <div className="timing-row">
+                                      <span className="label">Momento do Reinvestimento:</span>
+                                      <span className="value">Ano {cenario.impactoTiming.momentoReinvestimento}</span>
+                                    </div>
+                                    <div className="timing-row">
+                                      <span className="label">Taxa no Momento:</span>
+                                      <span className="value">{cenario.impactoTiming.taxaNoMomento.toFixed(1)}%</span>
+                                    </div>
+                                    <div className="timing-row">
+                                      <span className="label">Favorabilidade:</span>
+                                      <span className={`value ${cenario.impactoTiming.favorabilidade.toLowerCase()}`}>
+                                        {cenario.impactoTiming.favorabilidade}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="cenarios-summary">
-                      <div className="summary-content">
-                        <h4>📈 Síntese da Análise</h4>
-                        <div className="summary-metrics">
-                          <div className="summary-item">
-                            <span className="summary-label">Cenários Favoráveis</span>
-                            <span className="summary-value">
-                              {cenarios.filter(c => c.resultadoFavoravel).length} de {cenarios.length}
-                            </span>
-                          </div>
-                          <div className="summary-item">
-                            <span className="summary-label">Probabilidade Ponderada</span>
-                            <span className="summary-value">
-                              {formatarPercentual(
-                                cenarios.reduce((acc, c) => acc + (c.resultadoFavoravel ? c.probabilidade : 0), 0)
-                              )}
-                            </span>
-                          </div>
-                          <div className="summary-item">
-                            <span className="summary-label">Cenário de Maior Risco</span>
-                            <span className="summary-value">
-                              {cenarios.find(c => c.impacto === 'Alto' && !c.resultadoFavoravel)?.nome || 'Baixo risco identificado'}
-                            </span>
+                    <div className="cenarios-insights">
+                      <h4>Síntese da Análise de Cenários</h4>
+                      <div className="insights-grid">
+                        <div className="insight-card">
+                          <h5>Cenários Favoráveis</h5>
+                          <div className="insight-value">
+                            {cenarios.curvaJuros.filter(c => c.resultadoFavoravel).length} de {cenarios.curvaJuros.length} cenários 
+                            ({((cenarios.curvaJuros.filter(c => c.resultadoFavoravel).length / cenarios.curvaJuros.length) * 100).toFixed(0)}%)
                           </div>
                         </div>
                         
-                        <div className="recommendation-box">
-                          <h5>💡 Recomendação Estratégica</h5>
-                          <p>
-                            {cenarios.filter(c => c.resultadoFavoravel).length >= 3 ?
-                              'A estratégia proposta demonstra robustez em múltiplos cenários econômicos, apresentando resultado superior na maioria das condições testadas.' :
-                              cenarios.filter(c => c.resultadoFavoravel).length >= 2 ?
-                              'A estratégia proposta apresenta resultados mistos nos cenários analisados. Recomenda-se avaliação detalhada do perfil de risco do investidor.' :
-                              'A estratégia atual pode ser mais adequada considerando os riscos identificados nos cenários macroeconômicos testados.'
-                            }
-                          </p>
+                        <div className="insight-card">
+                          <h5>Sensibilidade a Juros</h5>
+                          <div className="insight-value">
+                            A estratégia é {cenarios.curvaJuros.some(c => c.sensibilidadeJuros === 'Alta') ? 'altamente' : 'moderadamente'} 
+                            sensível a movimentos de juros
+                          </div>
                         </div>
+
+                        <div className="insight-card">
+                          <h5>Melhor Cenário</h5>
+                          <div className="insight-value">
+                            {cenarios.curvaJuros.reduce((melhor, atual) => 
+                              atual.vantagem > melhor.vantagem ? atual : melhor
+                            ).nome}: {formatarValor(cenarios.curvaJuros.reduce((melhor, atual) => 
+                              atual.vantagem > melhor.vantagem ? atual : melhor
+                            ).vantagem)}
+                          </div>
+                        </div>
+
+                        <div className="insight-card">
+                          <h5>Pior Cenário</h5>
+                          <div className="insight-value">
+                            {cenarios.curvaJuros.reduce((pior, atual) => 
+                              atual.vantagem < pior.vantagem ? atual : pior
+                            ).nome}: {formatarValor(cenarios.curvaJuros.reduce((pior, atual) => 
+                              atual.vantagem < pior.vantagem ? atual : pior
+                            ).vantagem)}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="recomendacao-cenarios">
+                        <h5>Recomendação Baseada em Cenários</h5>
+                        <p>
+                          {cenarios.curvaJuros.filter(c => c.resultadoFavoravel).length >= 4 ?
+                            'A estratégia proposta é robusta e apresenta resultados superiores na maioria dos cenários de curva de juros analisados. Recomenda-se a migração.' :
+                            cenarios.curvaJuros.filter(c => c.resultadoFavoravel).length >= 3 ?
+                            'A estratégia proposta apresenta resultados favoráveis em cenários moderados. Considere sua tolerância a risco antes da decisão.' :
+                            'A estratégia atual pode ser mais adequada considerando a sensibilidade aos movimentos de curva de juros identificados.'}
+                        </p>
                       </div>
                     </div>
                   </div>

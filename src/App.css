@@ -847,3 +847,275 @@ body {
   }
 }
 
+
+/* Cenários de Curva de Juros */
+.cenarios-visualization {
+  margin-top: 2rem;
+}
+
+.curva-charts-section {
+  margin-bottom: 3rem;
+}
+
+.curva-charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-top: 1rem;
+}
+
+.cenarios-timing-analysis {
+  margin-bottom: 3rem;
+}
+
+.timing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.timing-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+}
+
+.timing-header {
+  display: flex;
+  justify-content: between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.timing-header h5 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+
+.resultado-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.resultado-badge.favoravel {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.resultado-badge.desfavoravel {
+  background-color: #fef2f2;
+  color: #dc2626;
+}
+
+.timing-details {
+  margin-bottom: 1rem;
+}
+
+.timing-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.timing-row:last-child {
+  border-bottom: none;
+}
+
+.timing-row .label {
+  font-size: 0.875rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.timing-row .value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.timing-row .value.positive {
+  color: #059669;
+}
+
+.timing-row .value.negative {
+  color: #dc2626;
+}
+
+.timing-row .value.favorável {
+  color: #059669;
+}
+
+.timing-row .value.desfavorável {
+  color: #dc2626;
+}
+
+.timing-row .value.neutro {
+  color: #64748b;
+}
+
+.timeline-section {
+  margin: 1rem 0;
+  padding: 1rem;
+  background-color: #f8fafc;
+  border-radius: 8px;
+  border-left: 4px solid #3b82f6;
+}
+
+.timeline-section h6 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 0.5rem;
+}
+
+.timeline-text {
+  font-size: 0.875rem;
+  color: #475569;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.gatilhos-section {
+  margin: 1rem 0;
+  padding: 1rem;
+  background-color: #fefce8;
+  border-radius: 8px;
+  border-left: 4px solid #f59e0b;
+}
+
+.gatilhos-section h6 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 0.5rem;
+}
+
+.gatilhos-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.gatilhos-list li {
+  font-size: 0.875rem;
+  color: #475569;
+  padding: 0.25rem 0;
+  position: relative;
+  padding-left: 1rem;
+}
+
+.gatilhos-list li::before {
+  content: "•";
+  color: #f59e0b;
+  font-weight: bold;
+  position: absolute;
+  left: 0;
+}
+
+.reinvestimento-section {
+  margin: 1rem 0;
+  padding: 1rem;
+  background-color: #f0f9ff;
+  border-radius: 8px;
+  border-left: 4px solid #0ea5e9;
+}
+
+.reinvestimento-section h6 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 0.5rem;
+}
+
+.reinvestimento-details {
+  margin-top: 0.5rem;
+}
+
+.insights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.insight-card {
+  background: white;
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+}
+
+.insight-card h5 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 0.5rem;
+}
+
+.insight-value {
+  font-size: 0.875rem;
+  color: #475569;
+  line-height: 1.4;
+}
+
+.recomendacao-cenarios {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  border-radius: 12px;
+  border: 1px solid #cbd5e1;
+}
+
+.recomendacao-cenarios h5 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 1rem;
+}
+
+.recomendacao-cenarios p {
+  font-size: 0.875rem;
+  color: #475569;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .curva-charts-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .timing-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .insights-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .timing-card {
+    padding: 1rem;
+  }
+  
+  .timeline-section,
+  .gatilhos-section,
+  .reinvestimento-section {
+    padding: 0.75rem;
+  }
+}
+
