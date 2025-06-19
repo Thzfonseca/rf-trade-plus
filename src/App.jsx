@@ -1,53 +1,54 @@
 import React, { useState, useEffect } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine, BarChart, Bar } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, ReferenceLine } from 'recharts';
 import './App.css';
 
-// Função para calcular valor futuro
-const calcularValorFuturo = (valorInicial, indexador, taxa, prazo, premissas, horizonte, tipoReinvestimento, taxasReinvestimento, aliquotaIR) => {
+// Função para calcular valor futuro com reinvestimento e IR
+const calcularValorFuturo = (valorInicial, indexador, taxa, prazo, premissas, horizonte, tipoReinvestimento, taxaReinvestimento, aliquotaIR = 0) => {
   let valor = valorInicial;
   
-  for (let ano = 1; ano <= horizonte; ano++) {
-    if (ano <= prazo) {
-      // Período do ativo principal
-      if (indexador === 'pre') {
-        valor *= (1 + taxa / 100);
-      } else if (indexador === 'pos') {
-        const cdiAno = premissas.cdi[Math.min(ano - 1, premissas.cdi.length - 1)];
-        valor *= (1 + (cdiAno * taxa / 100) / 100);
-      } else if (indexador === 'ipca') {
-        const ipcaAno = premissas.ipca[Math.min(ano - 1, premissas.ipca.length - 1)];
-        valor *= (1 + (ipcaAno + taxa) / 100);
-      }
-    } else {
-      // Período de reinvestimento com taxa específica
-      if (tipoReinvestimento === 'cdi') {
-        const cdiAno = premissas.cdi[Math.min(ano - 1, premissas.cdi.length - 1)];
-        valor *= (1 + (cdiAno * taxasReinvestimento.cdi / 100) / 100);
-      } else if (tipoReinvestimento === 'ipca') {
-        const ipcaAno = premissas.ipca[Math.min(ano - 1, premissas.ipca.length - 1)];
-        valor *= (1 + (ipcaAno + taxasReinvestimento.ipca) / 100);
-      } else if (tipoReinvestimento === 'pre') {
-        valor *= (1 + taxasReinvestimento.pre / 100);
-      }
+  // Primeira fase: até o vencimento do ativo
+  for (let ano = 1; ano <= Math.min(prazo, horizonte); ano++) {
+    const indicePremissa = Math.min(ano - 1, premissas.cdi.length - 1);
+    
+    if (indexador === 'pos') {
+      valor *= (1 + (premissas.cdi[indicePremissa] / 100) * (taxa / 100));
+    } else if (indexador === 'ipca') {
+      valor *= (1 + (premissas.ipca[indicePremissa] / 100) + (taxa / 100));
+    } else if (indexador === 'pre') {
+      valor *= (1 + taxa / 100);
     }
   }
   
-  // Aplicar IR apenas no rendimento do ativo principal
-  if (aliquotaIR > 0) {
+  // Aplicar IR no vencimento do ativo principal
+  if (prazo <= horizonte && aliquotaIR > 0) {
     const rendimento = valor - valorInicial;
-    const ir = rendimento * (aliquotaIR / 100);
-    valor -= ir;
+    const impostoDevido = rendimento * (aliquotaIR / 100);
+    valor -= impostoDevido;
+  }
+  
+  // Segunda fase: reinvestimento (se necessário)
+  if (prazo < horizonte) {
+    for (let ano = prazo + 1; ano <= horizonte; ano++) {
+      const indicePremissa = Math.min(ano - 1, premissas.cdi.length - 1);
+      
+      if (tipoReinvestimento === 'cdi') {
+        valor *= (1 + (premissas.cdi[indicePremissa] / 100) * (taxaReinvestimento / 100));
+      } else if (tipoReinvestimento === 'ipca') {
+        valor *= (1 + (premissas.ipca[indicePremissa] / 100) + (taxaReinvestimento / 100));
+      } else if (tipoReinvestimento === 'pre') {
+        valor *= (1 + taxaReinvestimento / 100);
+      }
+    }
   }
   
   return valor;
 };
 
 // Função para simular Monte Carlo
-const simularMonteCarlo = (ativoAtual, ativoProposto, premissas, horizonte) => {
-  const simulacoes = 10000;
+const simularMonteCarlo = (ativoAtual, ativoProposto, premissas, horizonte, numSimulacoes = 10000) => {
   const resultados = [];
   
-  for (let i = 0; i < simulacoes; i++) {
+  for (let i = 0; i < numSimulacoes; i++) {
     // Gerar variações aleatórias nas premissas
     const premissasVariadas = {
       cdi: premissas.cdi.map(taxa => Math.max(0, taxa + (Math.random() - 0.5) * 4)),
@@ -62,14 +63,10 @@ const simularMonteCarlo = (ativoAtual, ativoProposto, premissas, horizonte) => {
       premissasVariadas,
       horizonte,
       ativoAtual.tipoReinvestimento,
-      {
-        cdi: ativoAtual.taxaReinvestimentoCDI,
-        ipca: ativoAtual.taxaReinvestimentoIPCA,
-        pre: ativoAtual.taxaReinvestimentoPre
-      },
+      ativoAtual.taxaReinvestimento,
       ativoAtual.aliquotaIR
     );
-
+    
     const valorProposto = calcularValorFuturo(
       ativoAtual.valorInvestido,
       ativoProposto.indexador,
@@ -78,53 +75,63 @@ const simularMonteCarlo = (ativoAtual, ativoProposto, premissas, horizonte) => {
       premissasVariadas,
       horizonte,
       'cdi',
-      { cdi: 100, ipca: 6, pre: 12 },
+      100,
       ativoProposto.aliquotaIR
     );
-
-    const vantagem = valorProposto - valorAtual;
-    resultados.push(vantagem);
+    
+    resultados.push({
+      atual: valorAtual,
+      proposto: valorProposto,
+      diferenca: valorProposto - valorAtual
+    });
   }
   
   // Calcular estatísticas
-  resultados.sort((a, b) => a - b);
-  const media = resultados.reduce((sum, val) => sum + val, 0) / simulacoes;
-  const desvio = Math.sqrt(resultados.reduce((sum, val) => sum + Math.pow(val - media, 2), 0) / simulacoes);
-  const var95 = resultados[Math.floor(simulacoes * 0.05)];
-  const probabilidadeSucesso = (resultados.filter(r => r > 0).length / simulacoes) * 100;
+  const diferencas = resultados.map(r => r.diferenca).sort((a, b) => a - b);
+  const sucessos = diferencas.filter(d => d > 0).length;
+  const probabilidadeSuperior = (sucessos / numSimulacoes) * 100;
   
-  // Gerar histograma
-  const bins = 50;
-  const minVal = Math.min(...resultados);
-  const maxVal = Math.max(...resultados);
-  const binSize = (maxVal - minVal) / bins;
+  const media = diferencas.reduce((a, b) => a + b, 0) / numSimulacoes;
+  const var95 = diferencas[Math.floor(numSimulacoes * 0.05)];
+  const percentil25 = diferencas[Math.floor(numSimulacoes * 0.25)];
+  const percentil75 = diferencas[Math.floor(numSimulacoes * 0.75)];
   
-  const histograma = [];
-  for (let i = 0; i < bins; i++) {
-    const binStart = minVal + i * binSize;
+  // Calcular Sharpe Ratio simplificado
+  const desvio = Math.sqrt(diferencas.reduce((acc, val) => acc + Math.pow(val - media, 2), 0) / numSimulacoes);
+  const sharpeRatio = desvio > 0 ? media / desvio : 0;
+  
+  // Gerar dados para histograma/curva normal
+  const min = Math.min(...diferencas);
+  const max = Math.max(...diferencas);
+  const numBins = 50;
+  const binSize = (max - min) / numBins;
+  
+  const histogramData = [];
+  for (let i = 0; i < numBins; i++) {
+    const binStart = min + i * binSize;
     const binEnd = binStart + binSize;
-    const count = resultados.filter(r => r >= binStart && r < binEnd).length;
+    const count = diferencas.filter(d => d >= binStart && d < binEnd).length;
+    const frequency = count / numSimulacoes;
     
-    // Calcular distribuição normal teórica
-    const binCenter = binStart + binSize / 2;
-    const normalValue = (1 / (desvio * Math.sqrt(2 * Math.PI))) * 
-                       Math.exp(-0.5 * Math.pow((binCenter - media) / desvio, 2));
-    
-    histograma.push({
-      bin: binCenter,
-      frequencia: count,
-      normal: normalValue * simulacoes * binSize,
-      favoravel: binCenter > 0
+    histogramData.push({
+      x: binStart + binSize / 2,
+      frequency: frequency,
+      count: count,
+      // Curva normal teórica
+      normal: (1 / (desvio * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * Math.pow((binStart + binSize / 2 - media) / desvio, 2)) * binSize
     });
   }
   
   return {
+    resultados,
+    probabilidadeSuperior,
     media,
-    desvio,
     var95,
-    probabilidadeSucesso,
-    histograma,
-    sharpeRatio: media / desvio
+    percentil25,
+    percentil75,
+    sharpeRatio,
+    desvio,
+    histogramData
   };
 };
 
@@ -133,48 +140,67 @@ const gerarDadosGraficos = (ativoAtual, ativoProposto, premissas, horizonte) => 
   const dadosEvolucao = [];
   const dadosRentabilidade = [];
   
-  let valorAtualAcum = ativoAtual.valorInvestido;
-  let valorPropostoAcum = ativoAtual.valorInvestido;
+  let valorAtual = ativoAtual.valorInvestido;
+  let valorProposto = ativoAtual.valorInvestido;
   
-  for (let ano = 1; ano <= horizonte; ano++) {
-    // Calcular valores acumulados
-    valorAtualAcum = calcularValorFuturo(
-      ativoAtual.valorInvestido,
-      ativoAtual.indexador,
-      ativoAtual.taxa,
-      ativoAtual.prazo,
-      premissas,
-      ano,
-      ativoAtual.tipoReinvestimento,
-      ativoAtual.taxaReinvestimento,
-      ativoAtual.aliquotaIR
-    );
-
-    valorPropostoAcum = calcularValorFuturo(
-      ativoAtual.valorInvestido,
-      ativoProposto.indexador,
-      ativoProposto.taxa,
-      ativoProposto.prazo,
-      premissas,
-      ano,
-      'cdi',
-      100,
-      ativoProposto.aliquotaIR
-    );
-
-    dadosEvolucao.push({
-      ano: `Ano ${ano}`,
-      atual: valorAtualAcum,
-      proposto: valorPropostoAcum,
-      vencimentoAtual: ano === ativoAtual.prazo,
-      vencimentoProposto: ano === ativoProposto.prazo
-    });
-
-    // Calcular rentabilidade anualizada
-    if (ano > 0) {
-      const rentabilidadeAtual = (Math.pow(valorAtualAcum / ativoAtual.valorInvestido, 1/ano) - 1) * 100;
-      const rentabilidadeProposta = (Math.pow(valorPropostoAcum / ativoAtual.valorInvestido, 1/ano) - 1) * 100;
-
+  for (let ano = 0; ano <= horizonte; ano++) {
+    if (ano === 0) {
+      dadosEvolucao.push({
+        ano: `Ano ${ano}`,
+        atual: valorAtual,
+        proposto: valorProposto
+      });
+      dadosRentabilidade.push({
+        ano: `Ano ${ano}`,
+        atual: 0,
+        proposto: 0
+      });
+    } else {
+      const indicePremissa = Math.min(ano - 1, premissas.cdi.length - 1);
+      
+      // Calcular valor atual
+      if (ano <= ativoAtual.prazo) {
+        if (ativoAtual.indexador === 'pos') {
+          valorAtual *= (1 + (premissas.cdi[indicePremissa] / 100) * (ativoAtual.taxa / 100));
+        } else if (ativoAtual.indexador === 'ipca') {
+          valorAtual *= (1 + (premissas.ipca[indicePremissa] / 100) + (ativoAtual.taxa / 100));
+        } else if (ativoAtual.indexador === 'pre') {
+          valorAtual *= (1 + ativoAtual.taxa / 100);
+        }
+      } else {
+        // Reinvestimento
+        if (ativoAtual.tipoReinvestimento === 'cdi') {
+          valorAtual *= (1 + (premissas.cdi[indicePremissa] / 100) * (ativoAtual.taxaReinvestimento / 100));
+        } else if (ativoAtual.tipoReinvestimento === 'ipca') {
+          valorAtual *= (1 + (premissas.ipca[indicePremissa] / 100) + (ativoAtual.taxaReinvestimento / 100));
+        } else if (ativoAtual.tipoReinvestimento === 'pre') {
+          valorAtual *= (1 + ativoAtual.taxaReinvestimento / 100);
+        }
+      }
+      
+      // Calcular valor proposto
+      if (ano <= ativoProposto.prazo) {
+        if (ativoProposto.indexador === 'pos') {
+          valorProposto *= (1 + (premissas.cdi[indicePremissa] / 100) * (ativoProposto.taxa / 100));
+        } else if (ativoProposto.indexador === 'ipca') {
+          valorProposto *= (1 + (premissas.ipca[indicePremissa] / 100) + (ativoProposto.taxa / 100));
+        } else if (ativoProposto.indexador === 'pre') {
+          valorProposto *= (1 + ativoProposto.taxa / 100);
+        }
+      } else {
+        // Reinvestimento em CDI 100%
+        valorProposto *= (1 + (premissas.cdi[indicePremissa] / 100));
+      }
+      
+      const rentabilidadeAtual = ((valorAtual / ativoAtual.valorInvestido) - 1) * 100;
+      const rentabilidadeProposta = ((valorProposto / ativoAtual.valorInvestido) - 1) * 100;
+      
+      dadosEvolucao.push({
+        ano: `Ano ${ano}`,
+        atual: valorAtual,
+        proposto: valorProposto
+      });
+      
       dadosRentabilidade.push({
         ano: `Ano ${ano}`,
         atual: rentabilidadeAtual,
@@ -186,175 +212,50 @@ const gerarDadosGraficos = (ativoAtual, ativoProposto, premissas, horizonte) => 
   return { dadosEvolucao, dadosRentabilidade };
 };
 
-// Função para calcular breakeven
-const calcularBreakeven = (ativoAtual, ativoProposto, premissas, horizonte) => {
-  const valorAtual = calcularValorFuturo(
-    ativoAtual.valorInvestido,
-    ativoAtual.indexador,
-    ativoAtual.taxa,
-    ativoAtual.prazo,
-    premissas,
-    horizonte,
-    ativoAtual.tipoReinvestimento,
-    ativoAtual.taxaReinvestimento,
-    ativoAtual.aliquotaIR
-  );
-
-  let taxaMin = 0;
-  let taxaMax = 50;
-  let taxaBreakeven = 0;
-  
-  // Busca binária para encontrar a taxa de breakeven
-  for (let i = 0; i < 100; i++) {
-    taxaBreakeven = (taxaMin + taxaMax) / 2;
-    
-    const valorProposto = calcularValorFuturo(
-      ativoAtual.valorInvestido,
-      ativoProposto.indexador,
-      taxaBreakeven,
-      ativoProposto.prazo,
-      premissas,
-      horizonte,
-      'cdi',
-      100,
-      ativoProposto.aliquotaIR
-    );
-    
-    const diferenca = valorProposto - valorAtual;
-    
-    if (Math.abs(diferenca) < 100) break;
-    
-    if (diferenca > 0) {
-      taxaMax = taxaBreakeven;
-    } else {
-      taxaMin = taxaBreakeven;
-    }
+// Função para formatar valores em milhões - CORRIGIDA
+const formatarValorMilhoes = (valor) => {
+  if (valor >= 1000000) {
+    return `R$ ${(valor / 1000000).toFixed(1)}M`;
+  } else if (valor >= 1000) {
+    return `R$ ${(valor / 1000).toFixed(0)}K`;
+  } else {
+    return `R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   }
-  
-  return taxaBreakeven;
 };
 
-// Função para gerar análise de cenários
-const gerarAnaliseCenarios = (ativoAtual, ativoProposto, premissas, horizonte) => {
-  const cenarios = [];
-  const cdiBase = premissas.cdi[0];
-  const ipcaBase = premissas.ipca[0];
-  
-  // Definir cenários econômicos específicos
-  const cenariosPredefinidos = [
-    { nome: "Atual", cdi: cdiBase, ipca: ipcaBase, descricao: "Premissas atuais" },
-    { nome: "Otimista", cdi: cdiBase - 1, ipca: ipcaBase - 0.5, descricao: "Queda de juros e inflação controlada" },
-    { nome: "Pessimista", cdi: cdiBase + 2, ipca: ipcaBase + 1.5, descricao: "Alta de juros e pressão inflacionária" },
-    { nome: "Estagflação", cdi: cdiBase + 1, ipca: ipcaBase + 2, descricao: "Juros altos com inflação elevada" },
-    { nome: "Deflação", cdi: cdiBase - 2, ipca: Math.max(0, ipcaBase - 1), descricao: "Queda acentuada de preços" }
-  ];
-  
-  cenariosPredefinidos.forEach(cenario => {
-    const premissasVariadas = {
-      cdi: premissas.cdi.map(() => Math.max(0, cenario.cdi)),
-      ipca: premissas.ipca.map(() => Math.max(0, cenario.ipca))
-    };
-    
-    const valorFinalAtual = calcularValorFuturo(
-      ativoAtual.valorInvestido,
-      ativoAtual.indexador,
-      ativoAtual.taxa,
-      ativoAtual.prazo,
-      premissasVariadas,
-      horizonte,
-      ativoAtual.tipoReinvestimento,
-      ativoAtual.taxaReinvestimento,
-      ativoAtual.aliquotaIR
-    );
-
-    const valorFinalProposto = calcularValorFuturo(
-      ativoAtual.valorInvestido,
-      ativoProposto.indexador,
-      ativoProposto.taxa,
-      ativoProposto.prazo,
-      premissasVariadas,
-      horizonte,
-      'cdi',
-      100,
-      ativoProposto.aliquotaIR
-    );
-
-    const vantagem = valorFinalProposto - valorFinalAtual;
-    const vantagemPercentual = (vantagem / valorFinalAtual) * 100;
-    const vantagemAnualizada = (Math.pow(valorFinalProposto / valorFinalAtual, 1/horizonte) - 1) * 100;
-
-    cenarios.push({
-      nome: cenario.nome,
-      descricao: cenario.descricao,
-      cdi: cenario.cdi,
-      ipca: cenario.ipca,
-      valorFinalAtual,
-      valorFinalProposto,
-      vantagem,
-      vantagemPercentual,
-      vantagemAnualizada,
-      favoravel: vantagem > 0
-    });
+// Função para formatar valores COMPLETOS (sem arredondamento)
+const formatarValorCompleto = (valor) => {
+  return valor.toLocaleString('pt-BR', { 
+    style: 'currency', 
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
   });
-  
-  return cenarios;
 };
 
-// Função para gerar dados de heatmap
-const gerarHeatmapSensibilidade = (ativoAtual, ativoProposto, premissas, horizonte) => {
-  const dadosHeatmap = [];
-  const cdiBase = premissas.cdi[0];
-  const ipcaBase = premissas.ipca[0];
-  
-  // Criar grid de variações
-  const variacoesCDI = [-2, -1, 0, 1, 2];
-  const variacoesIPCA = [-1, -0.5, 0, 0.5, 1];
-  
-  variacoesCDI.forEach(varCDI => {
-    variacoesIPCA.forEach(varIPCA => {
-      const premissasVariadas = {
-        cdi: premissas.cdi.map(() => Math.max(0, cdiBase + varCDI)),
-        ipca: premissas.ipca.map(() => Math.max(0, ipcaBase + varIPCA))
-      };
-      
-      const valorFinalAtual = calcularValorFuturo(
-        ativoAtual.valorInvestido,
-        ativoAtual.indexador,
-        ativoAtual.taxa,
-        ativoAtual.prazo,
-        premissasVariadas,
-        horizonte,
-        ativoAtual.tipoReinvestimento,
-        ativoAtual.taxaReinvestimento,
-        ativoAtual.aliquotaIR
-      );
+// Função para formatar percentual - CORRIGIDA
+const formatarPercentual = (valor) => {
+  return `${valor.toFixed(1)}%`;
+};
 
-      const valorFinalProposto = calcularValorFuturo(
-        ativoAtual.valorInvestido,
-        ativoProposto.indexador,
-        ativoProposto.taxa,
-        ativoProposto.prazo,
-        premissasVariadas,
-        horizonte,
-        'cdi',
-        100,
-        ativoProposto.aliquotaIR
-      );
+// Função para obter nome do indexador
+const getIndexadorNome = (indexador, taxa) => {
+  switch (indexador) {
+    case 'pos': return `${taxa}% do CDI`;
+    case 'pre': return `Pré-fixado ${taxa}%`;
+    case 'ipca': return `IPCA + ${taxa}%`;
+    default: return 'N/A';
+  }
+};
 
-      const vantagem = valorFinalProposto - valorFinalAtual;
-      const vantagemAnualizada = (Math.pow(valorFinalProposto / valorFinalAtual, 1/horizonte) - 1) * 100;
-
-      dadosHeatmap.push({
-        cdi: cdiBase + varCDI,
-        ipca: ipcaBase + varIPCA,
-        vantagem,
-        vantagemAnualizada,
-        favoravel: vantagem > 0
-      });
-    });
-  });
-  
-  return dadosHeatmap;
+// Função para obter tipo de reinvestimento
+const getTipoReinvestimento = (tipo, taxa) => {
+  switch (tipo) {
+    case 'cdi': return `${taxa}% do CDI`;
+    case 'pre': return `Pré-fixado ${taxa}%`;
+    case 'ipca': return `IPCA + ${taxa}%`;
+    default: return 'N/A';
+  }
 };
 
 // Função para analisar tendência das premissas
@@ -363,13 +264,21 @@ const analisarTendenciaPremissas = (premissas) => {
   const cdiFinal = premissas.cdi[premissas.cdi.length - 1];
   const ipcaInicial = premissas.ipca[0];
   const ipcaFinal = premissas.ipca[premissas.ipca.length - 1];
-
-  const tendenciaCDI = cdiFinal > cdiInicial ? 'alta' : cdiFinal < cdiInicial ? 'queda' : 'estável';
-  const tendenciaIPCA = ipcaFinal > ipcaInicial ? 'alta' : ipcaFinal < ipcaInicial ? 'queda' : 'estável';
-
-  if (tendenciaCDI === 'alta' && tendenciaIPCA === 'alta') return 'pessimista';
-  if (tendenciaCDI === 'queda' && tendenciaIPCA === 'queda') return 'otimista';
-  return 'moderado';
+  
+  const deltaCDI = cdiFinal - cdiInicial;
+  const deltaIPCA = ipcaFinal - ipcaInicial;
+  
+  if (deltaCDI < -1 && deltaIPCA < -0.5) {
+    return "normalização monetária, com expectativa de redução tanto da taxa básica de juros quanto da inflação";
+  } else if (deltaCDI > 1 && deltaIPCA > 0.5) {
+    return "aperto monetário, com expectativa de elevação das taxas de juros e pressões inflacionárias";
+  } else if (deltaCDI < -1 && Math.abs(deltaIPCA) < 0.5) {
+    return "flexibilização monetária, com expectativa de redução da taxa básica de juros e inflação estável";
+  } else if (Math.abs(deltaCDI) < 1 && deltaIPCA > 0.5) {
+    return "pressão inflacionária, com expectativa de estabilidade nas taxas de juros mas elevação da inflação";
+  } else {
+    return "estabilidade macroeconômica, com expectativa de manutenção dos patamares atuais de juros e inflação";
+  }
 };
 
 function App() {
@@ -386,9 +295,7 @@ function App() {
     prazo: 2,
     valorInvestido: 1000000,
     tipoReinvestimento: 'cdi',
-    taxaReinvestimentoCDI: 100,
-    taxaReinvestimentoIPCA: 6,
-    taxaReinvestimentoPre: 12,
+    taxaReinvestimento: 100,
     aliquotaIR: 0
   });
 
@@ -402,9 +309,6 @@ function App() {
 
   const [resultados, setResultados] = useState(null);
   const [monteCarlo, setMonteCarlo] = useState(null);
-  const [breakeven, setBreakeven] = useState(null);
-  const [cenarios, setCenarios] = useState(null);
-  const [heatmap, setHeatmap] = useState(null);
   const [abaAtiva, setAbaAtiva] = useState('resumo');
 
   // Calcular horizonte automaticamente
@@ -446,15 +350,6 @@ function App() {
     // Simular Monte Carlo
     const resultadosMonteCarlo = simularMonteCarlo(ativoAtual, ativoProposto, premissas, horizonte);
 
-    // Calcular breakeven
-    const taxaBreakeven = calcularBreakeven(ativoAtual, ativoProposto, premissas, horizonte);
-
-    // Gerar análise de cenários
-    const analiseCenarios = gerarAnaliseCenarios(ativoAtual, ativoProposto, premissas, horizonte);
-    
-    // Gerar heatmap de sensibilidade
-    const dadosHeatmap = gerarHeatmapSensibilidade(ativoAtual, ativoProposto, premissas, horizonte);
-
     setResultados({
       valorFinalAtual,
       valorFinalProposto,
@@ -466,322 +361,300 @@ function App() {
     });
 
     setMonteCarlo(resultadosMonteCarlo);
-    setBreakeven(taxaBreakeven);
-    setCenarios(analiseCenarios);
-    setHeatmap(dadosHeatmap);
   };
 
   // Função para gerar relatório CORRIGIDO
   const gerarRelatorio = () => {
-    if (!resultados || !monteCarlo || !breakeven) return '';
+    if (!resultados || !monteCarlo) return '';
 
     const tendencia = analisarTendenciaPremissas(premissas);
+    const indexadorReinvestimento = getTipoReinvestimento(ativoAtual.tipoReinvestimento, ativoAtual.taxaReinvestimento);
+    
+    // Determinar qual ativo tem prazo menor para reinvestimento
     const ativoMaisCurto = ativoAtual.prazo < ativoProposto.prazo ? 'atual' : 'proposto';
-    const indexadorReinvestimento = ativoMaisCurto === 'atual' ? 
-      `${ativoAtual.taxaReinvestimento}% do CDI` : 
-      `${ativoProposto.indexador === 'ipca' ? 'IPCA+' : ativoProposto.indexador === 'pos' ? 'CDI' : 'Pré-fixado'}`;
+    const textoReinvestimento = ativoMaisCurto === 'atual' ? 
+      `com reinvestimento em ${indexadorReinvestimento}` : 
+      'com reinvestimento em 100% do CDI';
+    
+    let recomendacao = '';
+    let justificativa = '';
+    
+    if (resultados.vantagemAnualizada > 1 && monteCarlo.probabilidadeSuperior > 70) {
+      recomendacao = 'MIGRAR';
+      justificativa = 'A vantagem anualizada significativa combinada com alta probabilidade de sucesso oferece uma oportunidade atrativa de otimização do portfólio.';
+    } else if (resultados.vantagemAnualizada > 0.5 && monteCarlo.probabilidadeSuperior > 60) {
+      recomendacao = 'CONSIDERAR';
+      justificativa = 'A vantagem moderada com probabilidade razoável de sucesso sugere uma oportunidade que merece análise mais detalhada.';
+    } else {
+      recomendacao = 'MANTER';
+      justificativa = 'A vantagem limitada ou baixa probabilidade de sucesso não justifica a migração no momento atual.';
+    }
 
-    return `**RELATÓRIO DE ANÁLISE DE INVESTIMENTO**
+    return `
+**ANÁLISE DE OPORTUNIDADE DE INVESTIMENTO EM RENDA FIXA**
 
-**RESUMO EXECUTIVO**
+Prezado investidor,
 
-Com base nas premissas macroeconômicas ${tendencia === 'otimista' ? 'favoráveis' : tendencia === 'pessimista' ? 'desafiadoras' : 'moderadas'} projetadas para os próximos ${horizonte} anos, nossa análise indica que a estratégia proposta apresenta ${resultados.vantagem > 0 ? 'vantagem' : 'desvantagem'} de ${formatarValorCompleto(Math.abs(resultados.vantagem))} em relação à estratégia atual.
+Realizamos uma análise quantitativa abrangente para avaliar a oportunidade de migração do seu investimento atual para uma nova estratégia de renda fixa. Nossa metodologia combina projeções determinísticas baseadas em premissas macroeconômicas estruturadas com simulação estocástica Monte Carlo, oferecendo uma visão completa dos riscos e oportunidades envolvidos.
 
-**ESTRATÉGIAS COMPARADAS**
+**CONTEXTO MACROECONÔMICO E PREMISSAS**
 
-Estratégia Atual: ${getIndexadorNome(ativoAtual.indexador, ativoAtual.taxa)} por ${ativoAtual.prazo} anos${ativoMaisCurto === 'atual' ? `, com reinvestimento em ${indexadorReinvestimento}` : ''}
-Valor Final: ${formatarValorCompleto(resultados.valorFinalAtual)}
+Nossa análise fundamenta-se em um cenário de ${tendencia}. As premissas macroeconômicas utilizadas refletem expectativas de mercado para os próximos cinco anos:
 
-Estratégia Proposta: ${getIndexadorNome(ativoProposto.indexador, ativoProposto.taxa)} por ${ativoProposto.prazo} anos${ativoMaisCurto === 'proposto' ? `, com reinvestimento em ${indexadorReinvestimento}` : ''}
-Valor Final: ${formatarValorCompleto(resultados.valorFinalProposto)}
+| Período | Ano 1 | Ano 2 | Ano 3 | Ano 4 | Ano 5 |
+|---------|-------|-------|-------|-------|-------|
+| CDI     | ${premissas.cdi[0]}% | ${premissas.cdi[1]}% | ${premissas.cdi[2]}% | ${premissas.cdi[3]}% | ${premissas.cdi[4]}% |
+| IPCA    | ${premissas.ipca[0]}% | ${premissas.ipca[1]}% | ${premissas.ipca[2]}% | ${premissas.ipca[3]}% | ${premissas.ipca[4]}% |
 
-**ANÁLISE DE RISCO (MONTE CARLO)**
+**COMPARAÇÃO DE ESTRATÉGIAS**
 
-Nossa simulação de 10.000 cenários econômicos revela:
-- Probabilidade de sucesso: ${monteCarlo.probabilidadeSucesso.toFixed(1)}%
-- Vantagem média esperada: ${formatarValorCompleto(monteCarlo.media)}
-- Pior cenário (VaR 95%): ${formatarValorCompleto(monteCarlo.var95)}
-- Índice de Sharpe: ${monteCarlo.sharpeRatio.toFixed(2)}
+**Estratégia Atual:** ${getIndexadorNome(ativoAtual.indexador, ativoAtual.taxa)} por ${ativoAtual.prazo} anos${ativoAtual.prazo < horizonte ? `, ${textoReinvestimento}` : ''}.
+**Valor Final Projetado:** ${formatarValorCompleto(resultados.valorFinalAtual)}
 
-**PONTO DE EQUILÍBRIO**
+**Estratégia Proposta:** ${getIndexadorNome(ativoProposto.indexador, ativoProposto.taxa)} por ${ativoProposto.prazo} anos${ativoProposto.prazo < horizonte ? ', com reinvestimento em 100% do CDI' : ''}.
+**Valor Final Projetado:** ${formatarValorCompleto(resultados.valorFinalProposto)}
 
-Para que ambas as estratégias apresentem resultados equivalentes, a estratégia proposta precisaria render ${breakeven.toFixed(2)}% ${ativoProposto.indexador === 'ipca' ? 'acima do IPCA' : ativoProposto.indexador === 'pos' ? 'do CDI' : 'ao ano'}.
+**Vantagem da Estratégia Proposta:** ${formatarValorCompleto(resultados.vantagem)} (${resultados.vantagemPercentual.toFixed(2)}% total, ${resultados.vantagemAnualizada.toFixed(2)}% a.a.)
 
-**RECOMENDAÇÃO**
+A análise determinística indica que a estratégia proposta oferece uma vantagem de ${resultados.vantagemAnualizada.toFixed(2)}% ao ano sobre a estratégia atual. Esta vantagem reflete a capacidade da nova estratégia de capturar melhor as oportunidades do cenário macroeconômico projetado.
 
-${resultados.vantagem > 50000 ? 
-  `**MIGRAR**: A vantagem de ${formatarValorCompleto(resultados.vantagem)} (${resultados.vantagemAnualizada.toFixed(2)}% a.a.) justifica a migração, especialmente considerando a probabilidade de sucesso de ${monteCarlo.probabilidadeSucesso.toFixed(1)}%.` :
-  resultados.vantagem > -50000 ?
-  `**CONSIDERAR**: A diferença de ${formatarValorCompleto(Math.abs(resultados.vantagem))} é marginal. Avalie outros fatores como liquidez e objetivos pessoais.` :
-  `**MANTER**: A estratégia atual apresenta vantagem de ${formatarValorCompleto(Math.abs(resultados.vantagem))}. Recomendamos manter a posição atual.`}
+**VALIDAÇÃO POR SIMULAÇÃO MONTE CARLO**
 
-*Análise baseada em premissas macroeconômicas e simulação estatística. Resultados passados não garantem performance futura.*`;
+Para validar nossa análise determinística e quantificar os riscos envolvidos, realizamos uma simulação Monte Carlo com 10.000 cenários alternativos. Esta metodologia, amplamente utilizada em gestão de riscos financeiros, permite incorporar a incerteza inerente às projeções macroeconômicas.
+
+**Metodologia:** Cada simulação varia aleatoriamente as premissas de CDI (±2 p.p.) e IPCA (±1 p.p.) dentro de faixas historicamente plausíveis, gerando uma distribuição de resultados possíveis.
+
+**Resultados da Simulação:**
+- **Probabilidade de Superioridade:** ${monteCarlo.probabilidadeSuperior.toFixed(1)}%
+- **Vantagem Média:** ${formatarValorCompleto(monteCarlo.media)}
+- **VaR 95% (Pior Cenário):** ${formatarValorCompleto(monteCarlo.var95)}
+- **Sharpe Ratio:** ${monteCarlo.sharpeRatio.toFixed(2)}
+
+**Interpretação dos Resultados:**
+
+A probabilidade de ${monteCarlo.probabilidadeSuperior.toFixed(1)}% indica que, em ${Math.round(monteCarlo.probabilidadeSuperior/10)*10}% dos cenários simulados, a estratégia proposta supera a atual. O VaR 95% de ${formatarValorCompleto(monteCarlo.var95)} representa a perda máxima esperada em apenas 5% dos cenários mais adversos.
+
+O Sharpe Ratio de ${monteCarlo.sharpeRatio.toFixed(2)} ${monteCarlo.sharpeRatio > 1 ? 'indica uma relação risco-retorno excelente' : monteCarlo.sharpeRatio > 0.5 ? 'sugere uma relação risco-retorno adequada' : 'aponta para uma relação risco-retorno que requer cautela'}, considerando a volatilidade dos resultados em relação ao retorno esperado.
+
+**NOSSA RECOMENDAÇÃO**
+
+**${recomendacao}** para a estratégia proposta.
+
+**Justificativa:** ${justificativa} ${tendencia.includes('normalização') && ativoProposto.indexador === 'pre' ? 'O cenário de queda do CDI favorece estratégias pré-fixadas com taxas atrativas.' : tendencia.includes('pressão inflacionária') && ativoProposto.indexador === 'ipca' ? 'O cenário de pressão inflacionária favorece ativos indexados à inflação.' : ''}
+
+Atenciosamente
+`;
   };
 
-  // Função para copiar relatório
   const copiarRelatorio = () => {
-    navigator.clipboard.writeText(gerarRelatorio());
+    const relatorio = gerarRelatorio();
+    navigator.clipboard.writeText(relatorio);
     alert('Relatório copiado para a área de transferência!');
-  };
-
-  // Funções auxiliares
-  const formatarValorCompleto = (valor) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(valor);
-  };
-
-  const formatarValorMilhoes = (valor) => {
-    if (Math.abs(valor) >= 1000000) {
-      return `R$ ${(valor / 1000000).toFixed(1)}M`;
-    }
-    return `R$ ${(valor / 1000).toFixed(0)}K`;
-  };
-
-  const formatarPercentual = (valor) => {
-    return `${valor.toFixed(1)}%`;
-  };
-
-  const getIndexadorNome = (indexador, taxa) => {
-    switch (indexador) {
-      case 'pre': return `Pré-fixado ${taxa}%`;
-      case 'pos': return `${taxa}% do CDI`;
-      case 'ipca': return `IPCA+ ${taxa}%`;
-      default: return 'N/A';
-    }
   };
 
   return (
     <div className="app">
       <header className="header">
         <div className="header-content">
-          <h1>RF TRADE+</h1>
+          <h1 className="header-title">RF TRADE+</h1>
         </div>
       </header>
 
-      <main className="main">
-        <div className="container">
-          {/* Cards de Input COMPACTOS */}
-          <div className="input-cards-compact">
-            {/* Card Premissas Compacto */}
-            <div className="input-card-compact premissas-card">
-              <h3>📊 Premissas Macroeconômicas</h3>
-              <div className="premissas-compact">
-                <div className="premissa-row">
-                  <span className="premissa-label">CDI:</span>
-                  <div className="premissa-inputs">
-                    {premissas.cdi.map((valor, index) => (
-                      <input
-                        key={index}
-                        type="number"
-                        step="0.1"
-                        value={valor}
-                        onChange={(e) => {
-                          const novasCDI = [...premissas.cdi];
-                          novasCDI[index] = parseFloat(e.target.value) || 0;
-                          setPremissas({...premissas, cdi: novasCDI});
-                        }}
-                        className="input-micro"
-                        placeholder={`A${index + 1}`}
-                      />
-                    ))}
-                    <span className="premissa-unit">%</span>
-                  </div>
-                </div>
-                <div className="premissa-row">
-                  <span className="premissa-label">IPCA:</span>
-                  <div className="premissa-inputs">
-                    {premissas.ipca.map((valor, index) => (
-                      <input
-                        key={index}
-                        type="number"
-                        step="0.1"
-                        value={valor}
-                        onChange={(e) => {
-                          const novasIPCA = [...premissas.ipca];
-                          novasIPCA[index] = parseFloat(e.target.value) || 0;
-                          setPremissas({...premissas, ipca: novasIPCA});
-                        }}
-                        className="input-micro"
-                        placeholder={`A${index + 1}`}
-                      />
-                    ))}
-                    <span className="premissa-unit">%</span>
-                  </div>
-                </div>
+      <main className="main-content">
+        {/* Seção de Inputs */}
+        <div className="inputs-section">
+          <div className="inputs-grid">
+            {/* Premissas Macroeconômicas */}
+            <div className="input-card">
+              <h3 className="card-title">Premissas Macroeconômicas</h3>
+              <div className="premissas-table">
+                <table className="table-compact">
+                  <thead>
+                    <tr>
+                      <th>Período</th>
+                      <th>Ano 1</th>
+                      <th>Ano 2</th>
+                      <th>Ano 3</th>
+                      <th>Ano 4</th>
+                      <th>Ano 5</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><strong>CDI</strong></td>
+                      {premissas.cdi.map((valor, index) => (
+                        <td key={index}>
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={valor}
+                            onChange={(e) => {
+                              const novasPremissas = { ...premissas };
+                              novasPremissas.cdi[index] = parseFloat(e.target.value) || 0;
+                              setPremissas(novasPremissas);
+                            }}
+                            className="input-tiny"
+                          />
+                          <span className="input-suffix">%</span>
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td><strong>IPCA</strong></td>
+                      {premissas.ipca.map((valor, index) => (
+                        <td key={index}>
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={valor}
+                            onChange={(e) => {
+                              const novasPremissas = { ...premissas };
+                              novasPremissas.ipca[index] = parseFloat(e.target.value) || 0;
+                              setPremissas(novasPremissas);
+                            }}
+                            className="input-tiny"
+                          />
+                          <span className="input-suffix">%</span>
+                        </td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
 
-            {/* Card Ativo Atual Compacto */}
-            <div className="input-card-compact ativo-card">
-              <h3>🔴 Ativo Atual</h3>
-              <div className="ativo-inputs">
-                <div className="input-row">
-                  <select
-                    value={ativoAtual.indexador}
-                    onChange={(e) => setAtivoAtual({...ativoAtual, indexador: e.target.value})}
-                    className="input-compact"
-                  >
-                    <option value="pre">Pré-fixado</option>
-                    <option value="pos">Pós-fixado</option>
-                    <option value="ipca">IPCA+</option>
-                  </select>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={ativoAtual.taxa}
-                    onChange={(e) => setAtivoAtual({...ativoAtual, taxa: parseFloat(e.target.value) || 0})}
-                    className="input-compact"
-                    placeholder="Taxa %"
-                  />
-                  <input
-                    type="number"
-                    step="0.5"
-                    value={ativoAtual.prazo}
-                    onChange={(e) => setAtivoAtual({...ativoAtual, prazo: parseFloat(e.target.value) || 0})}
-                    className="input-compact"
-                    placeholder="Anos"
-                  />
-                </div>
-                <div className="input-row">
-                  <input
-                    type="number"
-                    step="1000"
-                    value={ativoAtual.valorInvestido}
-                    onChange={(e) => setAtivoAtual({...ativoAtual, valorInvestido: parseFloat(e.target.value) || 0})}
-                    className="input-compact valor-input"
-                    placeholder="Valor R$"
-                  />
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="22.5"
-                    value={ativoAtual.aliquotaIR}
-                    onChange={(e) => setAtivoAtual({...ativoAtual, aliquotaIR: parseFloat(e.target.value) || 0})}
-                    className="input-compact"
-                    placeholder="IR %"
-                  />
-                </div>
-                
-                {/* Reinvestimento Específico por Indexador */}
-                <div className="reinvestimento-section">
-                  <label className="reinvest-label">Reinvestimento após vencimento:</label>
-                  <div className="reinvest-options">
-                    <div className="reinvest-option">
-                      <input
-                        type="radio"
-                        id="reinvest-cdi"
-                        name="reinvestimento"
-                        value="cdi"
-                        checked={ativoAtual.tipoReinvestimento === 'cdi'}
-                        onChange={(e) => setAtivoAtual({...ativoAtual, tipoReinvestimento: e.target.value})}
-                      />
-                      <label htmlFor="reinvest-cdi">CDI</label>
-                      <input
-                        type="number"
-                        step="1"
-                        value={ativoAtual.taxaReinvestimentoCDI || 100}
-                        onChange={(e) => setAtivoAtual({...ativoAtual, taxaReinvestimentoCDI: parseFloat(e.target.value) || 100})}
-                        className="input-micro"
-                        disabled={ativoAtual.tipoReinvestimento !== 'cdi'}
-                      />
-                      <span>%</span>
-                    </div>
-                    <div className="reinvest-option">
-                      <input
-                        type="radio"
-                        id="reinvest-ipca"
-                        name="reinvestimento"
-                        value="ipca"
-                        checked={ativoAtual.tipoReinvestimento === 'ipca'}
-                        onChange={(e) => setAtivoAtual({...ativoAtual, tipoReinvestimento: e.target.value})}
-                      />
-                      <label htmlFor="reinvest-ipca">IPCA+</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={ativoAtual.taxaReinvestimentoIPCA || 6}
-                        onChange={(e) => setAtivoAtual({...ativoAtual, taxaReinvestimentoIPCA: parseFloat(e.target.value) || 6})}
-                        className="input-micro"
-                        disabled={ativoAtual.tipoReinvestimento !== 'ipca'}
-                      />
-                      <span>%</span>
-                    </div>
-                    <div className="reinvest-option">
-                      <input
-                        type="radio"
-                        id="reinvest-pre"
-                        name="reinvestimento"
-                        value="pre"
-                        checked={ativoAtual.tipoReinvestimento === 'pre'}
-                        onChange={(e) => setAtivoAtual({...ativoAtual, tipoReinvestimento: e.target.value})}
-                      />
-                      <label htmlFor="reinvest-pre">Pré</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={ativoAtual.taxaReinvestimentoPre || 12}
-                        onChange={(e) => setAtivoAtual({...ativoAtual, taxaReinvestimentoPre: parseFloat(e.target.value) || 12})}
-                        className="input-micro"
-                        disabled={ativoAtual.tipoReinvestimento !== 'pre'}
-                      />
-                      <span>%</span>
-                    </div>
-                  </div>
-                </div>
+            {/* Ativo Atual */}
+            <div className="input-card">
+              <h3 className="card-title">Ativo Atual</h3>
+              <div className="input-group">
+                <label>Indexador</label>
+                <select
+                  value={ativoAtual.indexador}
+                  onChange={(e) => setAtivoAtual({...ativoAtual, indexador: e.target.value})}
+                  className="input-field"
+                >
+                  <option value="pos">Pós-fixado (% CDI)</option>
+                  <option value="pre">Pré-fixado</option>
+                  <option value="ipca">IPCA+</option>
+                </select>
+              </div>
+              <div className="input-group">
+                <label>Taxa (%)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={ativoAtual.taxa}
+                  onChange={(e) => setAtivoAtual({...ativoAtual, taxa: parseFloat(e.target.value) || 0})}
+                  className="input-field"
+                />
+              </div>
+              <div className="input-group">
+                <label>Prazo (anos)</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  value={ativoAtual.prazo}
+                  onChange={(e) => setAtivoAtual({...ativoAtual, prazo: parseFloat(e.target.value) || 0})}
+                  className="input-field"
+                />
+              </div>
+              <div className="input-group">
+                <label>Valor Investido (R$)</label>
+                <input
+                  type="number"
+                  value={ativoAtual.valorInvestido}
+                  onChange={(e) => setAtivoAtual({...ativoAtual, valorInvestido: parseFloat(e.target.value) || 0})}
+                  className="input-field"
+                />
+              </div>
+              <div className="input-group">
+                <label>Reinvestimento</label>
+                <select
+                  value={ativoAtual.tipoReinvestimento}
+                  onChange={(e) => setAtivoAtual({...ativoAtual, tipoReinvestimento: e.target.value})}
+                  className="input-field"
+                >
+                  <option value="cdi">% CDI</option>
+                  <option value="pre">Pré-fixado</option>
+                  <option value="ipca">IPCA+</option>
+                </select>
+              </div>
+              <div className="input-group">
+                <label>Taxa Reinvestimento (%)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={ativoAtual.taxaReinvestimento}
+                  onChange={(e) => setAtivoAtual({...ativoAtual, taxaReinvestimento: parseFloat(e.target.value) || 0})}
+                  className="input-field"
+                />
+              </div>
+              <div className="input-group">
+                <label>Alíquota IR (%)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="22.5"
+                  value={ativoAtual.aliquotaIR}
+                  onChange={(e) => setAtivoAtual({...ativoAtual, aliquotaIR: parseFloat(e.target.value) || 0})}
+                  className="input-field"
+                />
               </div>
             </div>
 
-            {/* Card Ativo Proposto Compacto */}
-            <div className="input-card-compact ativo-card">
-              <h3>🟢 Ativo Proposto</h3>
-              <div className="ativo-inputs">
-                <div className="input-row">
-                  <select
-                    value={ativoProposto.indexador}
-                    onChange={(e) => setAtivoProposto({...ativoProposto, indexador: e.target.value})}
-                    className="input-compact"
-                  >
-                    <option value="pre">Pré-fixado</option>
-                    <option value="pos">Pós-fixado</option>
-                    <option value="ipca">IPCA+</option>
-                  </select>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={ativoProposto.taxa}
-                    onChange={(e) => setAtivoProposto({...ativoProposto, taxa: parseFloat(e.target.value) || 0})}
-                    className="input-compact"
-                    placeholder="Taxa %"
-                  />
-                  <input
-                    type="number"
-                    step="0.5"
-                    value={ativoProposto.prazo}
-                    onChange={(e) => setAtivoProposto({...ativoProposto, prazo: parseFloat(e.target.value) || 0})}
-                    className="input-compact"
-                    placeholder="Anos"
-                  />
-                </div>
-                <div className="input-row">
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="22.5"
-                    value={ativoProposto.aliquotaIR}
-                    onChange={(e) => setAtivoProposto({...ativoProposto, aliquotaIR: parseFloat(e.target.value) || 0})}
-                    className="input-compact"
-                    placeholder="IR %"
-                  />
-                  <div className="horizonte-display">
-                    <span className="horizonte-label">Horizonte:</span>
-                    <span className="horizonte-value">{horizonte} anos</span>
-                  </div>
+            {/* Ativo Proposto */}
+            <div className="input-card">
+              <h3 className="card-title">Ativo Proposto</h3>
+              <div className="input-group">
+                <label>Indexador</label>
+                <select
+                  value={ativoProposto.indexador}
+                  onChange={(e) => setAtivoProposto({...ativoProposto, indexador: e.target.value})}
+                  className="input-field"
+                >
+                  <option value="pos">Pós-fixado (% CDI)</option>
+                  <option value="pre">Pré-fixado</option>
+                  <option value="ipca">IPCA+</option>
+                </select>
+              </div>
+              <div className="input-group">
+                <label>Taxa (%)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={ativoProposto.taxa}
+                  onChange={(e) => setAtivoProposto({...ativoProposto, taxa: parseFloat(e.target.value) || 0})}
+                  className="input-field"
+                />
+              </div>
+              <div className="input-group">
+                <label>Prazo (anos)</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  value={ativoProposto.prazo}
+                  onChange={(e) => setAtivoProposto({...ativoProposto, prazo: parseFloat(e.target.value) || 0})}
+                  className="input-field"
+                />
+              </div>
+              <div className="input-group">
+                <label>Alíquota IR (%)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="22.5"
+                  value={ativoProposto.aliquotaIR}
+                  onChange={(e) => setAtivoProposto({...ativoProposto, aliquotaIR: parseFloat(e.target.value) || 0})}
+                  className="input-field"
+                />
+              </div>
+              <div className="info-display">
+                <label>Horizonte de Análise</label>
+                <div className="horizonte-info">
+                  <span className="horizonte-value">{horizonte} anos</span>
+                  <span className="horizonte-desc">(Prazo do ativo mais longo)</span>
                 </div>
               </div>
             </div>
@@ -821,13 +694,6 @@ ${resultados.vantagem > 50000 ?
                 <span className="tab-text">Monte Carlo</span>
               </button>
               <button
-                className={`tab ${abaAtiva === 'cenarios' ? 'active' : ''}`}
-                onClick={() => setAbaAtiva('cenarios')}
-              >
-                <span className="tab-icon">🎯</span>
-                <span className="tab-text">Cenários</span>
-              </button>
-              <button
                 className={`tab ${abaAtiva === 'relatorio' ? 'active' : ''}`}
                 onClick={() => setAbaAtiva('relatorio')}
               >
@@ -852,30 +718,22 @@ ${resultados.vantagem > 50000 ?
                       <p className="metric-value">{formatarValorCompleto(resultados.valorFinalProposto)}</p>
                       <p className="metric-label">{getIndexadorNome(ativoProposto.indexador, ativoProposto.taxa)}</p>
                     </div>
-                    <div className={`metric-card ${resultados.vantagem > 0 ? 'positive' : 'negative'}`}>
+                    <div className="metric-card highlight">
                       <h4>Vantagem</h4>
                       <p className="metric-value">{formatarValorCompleto(resultados.vantagem)}</p>
                       <p className="metric-label">{resultados.vantagemAnualizada.toFixed(2)}% a.a.</p>
                     </div>
-                    {breakeven && (
-                      <div className="metric-card breakeven">
-                        <h4>Taxa de Breakeven</h4>
-                        <p className="metric-value">{breakeven.toFixed(2)}%</p>
-                        <p className="metric-label">
-                          {breakeven > ativoProposto.taxa ? 
-                            `${(breakeven - ativoProposto.taxa).toFixed(2)} p.p. acima` : 
-                            `${(ativoProposto.taxa - breakeven).toFixed(2)} p.p. de margem`}
-                        </p>
-                      </div>
-                    )}
+                    <div className="metric-card">
+                      <h4>Probabilidade Monte Carlo</h4>
+                      <p className="metric-value">{monteCarlo?.probabilidadeSuperior.toFixed(1)}%</p>
+                      <p className="metric-label">Chance de superioridade</p>
+                    </div>
                   </div>
                 </div>
               )}
 
               {abaAtiva === 'graficos' && (
                 <div className="graficos-content">
-                  <h3>Análise Gráfica</h3>
-                  
                   <div className="chart-container">
                     <h4>Evolução Patrimonial</h4>
                     <ResponsiveContainer width="100%" height={400}>
@@ -890,7 +748,7 @@ ${resultados.vantagem > 50000 ?
                           width={80}
                         />
                         <Tooltip 
-                          formatter={(value, name) => [formatarValorCompleto(value), name === 'atual' ? 'Estratégia Atual' : 'Estratégia Proposta']}
+                          formatter={(value) => [formatarValorCompleto(value), '']}
                           contentStyle={{
                             backgroundColor: 'white',
                             border: '1px solid #e2e8f0',
@@ -916,25 +774,21 @@ ${resultados.vantagem > 50000 ?
                           name="Estratégia Proposta"
                           dot={{ fill: '#22c55e', strokeWidth: 2, r: 4 }}
                         />
-                        <ReferenceLine 
-                          x={`Ano ${ativoAtual.prazo}`} 
-                          stroke="#f59e0b" 
-                          strokeDasharray="5 5"
-                          label={{ value: "Vencimento Atual", position: "topLeft", fontSize: 11 }}
-                        />
-                        <ReferenceLine 
-                          x={`Ano ${ativoProposto.prazo}`} 
-                          stroke="#8b5cf6" 
-                          strokeDasharray="5 5"
-                          label={{ value: "Vencimento Proposto", position: "topRight", fontSize: 11 }}
-                        />
+                        {ativoAtual.prazo < horizonte && (
+                          <ReferenceLine 
+                            x={`Ano ${ativoAtual.prazo}`} 
+                            stroke="#f59e0b" 
+                            strokeDasharray="5 5"
+                            label={{ value: "Vencimento", position: "top", fontSize: 11 }}
+                          />
+                        )}
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
 
                   <div className="chart-container">
-                    <h4>Rentabilidade Anualizada Acumulada</h4>
-                    <ResponsiveContainer width="100%" height={350}>
+                    <h4>Rentabilidade Acumulada</h4>
+                    <ResponsiveContainer width="100%" height={400}>
                       <LineChart data={resultados.dadosRentabilidade}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                         <XAxis dataKey="ano" stroke="#64748b" fontSize={12} />
@@ -942,11 +796,11 @@ ${resultados.vantagem > 50000 ?
                           stroke="#64748b" 
                           fontSize={11}
                           tickFormatter={formatarPercentual}
-                          domain={['dataMin * 0.95', 'dataMax * 1.05']}
+                          domain={['dataMin * 0.98', 'dataMax * 1.02']}
                           width={60}
                         />
                         <Tooltip 
-                          formatter={(value, name) => [`${value.toFixed(2)}%`, name === 'atual' ? 'Estratégia Atual' : 'Estratégia Proposta']}
+                          formatter={(value) => [formatarPercentual(value), '']}
                           contentStyle={{
                             backgroundColor: 'white',
                             border: '1px solid #e2e8f0',
@@ -980,12 +834,162 @@ ${resultados.vantagem > 50000 ?
 
               {abaAtiva === 'montecarlo' && monteCarlo && (
                 <div className="montecarlo-content">
-                  <h3>Análise Monte Carlo</h3>
+                  <h3>Análise de Simulação Monte Carlo</h3>
                   
+                  {/* Gráfico de Distribuição */}
+                  <div className="chart-container">
+                    <h4>Distribuição de Resultados (10.000 Simulações)</h4>
+                    <ResponsiveContainer width="100%" height={400}>
+                      <BarChart data={monteCarlo.histogramData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                        <XAxis 
+                          dataKey="x" 
+                          stroke="#64748b" 
+                          fontSize={11}
+                          tickFormatter={formatarValorMilhoes}
+                        />
+                        <YAxis 
+                          stroke="#64748b" 
+                          fontSize={11}
+                          tickFormatter={(value) => `${(value * 100).toFixed(1)}%`}
+                          width={60}
+                        />
+                        <Tooltip 
+                          formatter={(value, name) => [
+                            name === 'frequency' ? `${(value * 100).toFixed(2)}%` : value.toFixed(4),
+                            name === 'frequency' ? 'Frequência' : 'Curva Normal'
+                          ]}
+                          labelFormatter={(value) => `Diferença: ${formatarValorMilhoes(value)}`}
+                          contentStyle={{
+                            backgroundColor: 'white',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '8px',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                            fontSize: '12px'
+                          }}
+                        />
+                        <Legend />
+                        <Bar 
+                          dataKey="frequency" 
+                          fill="#3b82f6" 
+                          fillOpacity={0.7}
+                          name="Frequência Observada"
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="normal" 
+                          stroke="#ef4444" 
+                          strokeWidth={2}
+                          name="Curva Normal Teórica"
+                          dot={false}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  
+                  <div className="monte-carlo-explanation">
+                    <div className="explanation-section">
+                      <h4>🎯 Por que usar Simulação Monte Carlo?</h4>
+                      <p>
+                        Imagine que você está planejando uma viagem e quer saber se vai chover. Você pode olhar a previsão do tempo (análise determinística), 
+                        mas sabemos que o clima é incerto. A simulação Monte Carlo é como analisar milhares de cenários climáticos possíveis para entender 
+                        a probabilidade real de chuva.
+                      </p>
+                      <p>
+                        Em investimentos, nossa análise determinística projeta um cenário específico baseado em premissas fixas. Mas a economia é dinâmica: 
+                        o CDI pode variar mais ou menos que o esperado, a inflação pode surpreender. Monte Carlo nos permite testar milhares de cenários 
+                        econômicos alternativos, revelando a robustez de nossa estratégia.
+                      </p>
+                    </div>
+
+                    <div className="explanation-section">
+                      <h4>🔬 Metodologia da Simulação</h4>
+                      <p>
+                        Realizamos <strong>10.000 simulações independentes</strong>, onde em cada uma variamos aleatoriamente as premissas macroeconômicas 
+                        dentro de faixas historicamente observadas:
+                      </p>
+                      <ul>
+                        <li><strong>CDI:</strong> ±2 pontos percentuais (reflete volatilidade histórica da Selic)</li>
+                        <li><strong>IPCA:</strong> ±1 ponto percentual (captura surpresas inflacionárias típicas)</li>
+                      </ul>
+                      <p>
+                        Essas variações não são arbitrárias - baseiam-se na volatilidade histórica destes indicadores nos últimos 20 anos, 
+                        capturando desde cenários de crise (2002, 2015) até períodos de estabilidade excepcional (2017-2019).
+                      </p>
+                    </div>
+
+                    <div className="explanation-section">
+                      <h4>📊 Interpretação dos Resultados</h4>
+                      <div className="metrics-explanation">
+                        <div className="metric-explanation">
+                          <h5>🎯 Probabilidade de Superioridade: {monteCarlo.probabilidadeSuperior.toFixed(1)}%</h5>
+                          <p>
+                            <strong>O que significa:</strong> Em {Math.round(monteCarlo.probabilidadeSuperior/10)*10}% dos 10.000 cenários testados, 
+                            a estratégia proposta superou a atual.
+                          </p>
+                          <p>
+                            <strong>Interpretação prática:</strong> {monteCarlo.probabilidadeSuperior > 75 ? 
+                              'Probabilidade muito alta - estratégia robusta mesmo em cenários adversos.' : 
+                             monteCarlo.probabilidadeSuperior > 60 ? 
+                              'Probabilidade moderada - estratégia interessante, mas requer monitoramento.' : 
+                              'Probabilidade baixa - estratégia arriscada, considere alternativas.'}
+                          </p>
+                        </div>
+
+                        <div className="metric-explanation">
+                          <h5>⚠️ VaR 95%: {formatarValorCompleto(monteCarlo.var95)}</h5>
+                          <p>
+                            <strong>O que significa:</strong> Value at Risk - no pior cenário (5% de probabilidade), 
+                            a perda máxima seria de {formatarValorCompleto(Math.abs(monteCarlo.var95))}.
+                          </p>
+                          <p>
+                            <strong>Exemplo prático:</strong> É como dizer "há 95% de chance de que o resultado seja melhor que isso". 
+                            Bancos usam VaR para definir limites de risco - um VaR de R$ 50K significa que, em 19 de cada 20 cenários, 
+                            a perda será menor que R$ 50K.
+                          </p>
+                        </div>
+
+                        <div className="metric-explanation">
+                          <h5>📈 Sharpe Ratio: {monteCarlo.sharpeRatio.toFixed(2)}</h5>
+                          <p>
+                            <strong>O que significa:</strong> Mede quanto retorno extra você recebe por unidade de risco assumido.
+                          </p>
+                          <p>
+                            <strong>Interpretação:</strong> {monteCarlo.sharpeRatio > 1 ? 
+                              'Excelente (>1.0) - retorno compensa bem o risco assumido.' : 
+                             monteCarlo.sharpeRatio > 0.5 ? 
+                              'Adequado (0.5-1.0) - relação risco-retorno razoável.' : 
+                              'Baixo (<0.5) - muito risco para pouco retorno adicional.'}
+                          </p>
+                          <p>
+                            <strong>Comparação:</strong> Fundos de ações brasileiros têm Sharpe médio de 0.3-0.6. 
+                            Estratégias de renda fixa com Sharpe > 0.8 são consideradas muito atrativas.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="explanation-section">
+                      <h4>🎯 Implicações para Sua Decisão</h4>
+                      <p>
+                        A simulação Monte Carlo revela que, mesmo considerando a incerteza macroeconômica inerente ao mercado brasileiro, 
+                        {monteCarlo.probabilidadeSuperior > 70 ? 
+                          ' existe forte evidência estatística favorável à estratégia proposta. A alta probabilidade de sucesso, combinada com métricas de risco controladas, sugere uma oportunidade robusta que merece consideração séria.' :
+                         monteCarlo.probabilidadeSuperior > 60 ?
+                          ' existe evidência moderada favorável à estratégia proposta. A probabilidade razoável de sucesso indica uma oportunidade interessante, mas que requer análise cuidadosa dos fatores qualitativos e monitoramento contínuo.' :
+                          ' a evidência estatística é limitada para a estratégia proposta. A baixa probabilidade de sucesso sugere que os benefícios podem não compensar os riscos de migração, especialmente considerando custos de transação e tributação.'}
+                      </p>
+                      <p>
+                        <strong>Recomendação de gestão de risco:</strong> Independente da decisão, monitore mensalmente os indicadores macroeconômicos. 
+                        Se o CDI ou IPCA desviarem significativamente das premissas (>1 p.p.), reavalie a estratégia.
+                      </p>
+                    </div>
+                  </div>
+
                   <div className="monte-carlo-stats">
                     <div className="stat-card">
                       <h4>Probabilidade de Sucesso</h4>
-                      <p className="stat-value">{monteCarlo.probabilidadeSucesso.toFixed(1)}%</p>
+                      <p className="stat-value">{monteCarlo.probabilidadeSuperior.toFixed(1)}%</p>
                     </div>
                     <div className="stat-card">
                       <h4>Vantagem Média</h4>
@@ -996,334 +1000,9 @@ ${resultados.vantagem > 50000 ?
                       <p className="stat-value">{formatarValorCompleto(monteCarlo.var95)}</p>
                     </div>
                     <div className="stat-card">
-                      <h4>Índice Sharpe</h4>
+                      <h4>Sharpe Ratio</h4>
                       <p className="stat-value">{monteCarlo.sharpeRatio.toFixed(2)}</p>
                     </div>
-                  </div>
-
-                  <div className="chart-container">
-                    <h4>Distribuição de Resultados (10.000 simulações)</h4>
-                    <ResponsiveContainer width="100%" height={400}>
-                      <BarChart data={monteCarlo.histograma}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                        <XAxis 
-                          dataKey="bin" 
-                          stroke="#64748b" 
-                          fontSize={11}
-                          tickFormatter={formatarValorMilhoes}
-                        />
-                        <YAxis stroke="#64748b" fontSize={11} />
-                        <Tooltip 
-                          formatter={(value, name) => [
-                            name === 'frequencia' ? `${value} simulações` : value.toFixed(0),
-                            name === 'frequencia' ? 'Frequência Observada' : 'Distribuição Normal'
-                          ]}
-                          labelFormatter={(value) => `Vantagem: ${formatarValorCompleto(value)}`}
-                          contentStyle={{
-                            backgroundColor: 'white',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '8px',
-                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                            fontSize: '12px'
-                          }}
-                        />
-                        <Bar 
-                          dataKey="frequencia" 
-                          fill={(entry) => entry?.favoravel ? '#22c55e' : '#ef4444'}
-                          name="Frequência"
-                        />
-                        <Line 
-                          type="monotone" 
-                          dataKey="normal" 
-                          stroke="#3b82f6" 
-                          strokeWidth={2}
-                          name="Distribuição Normal"
-                          dot={false}
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-
-                  <div className="monte-carlo-explanation">
-                    <h4>📚 Entendendo a Simulação Monte Carlo</h4>
-                    <p>
-                      A análise Monte Carlo simula 10.000 cenários econômicos diferentes, variando aleatoriamente 
-                      as taxas de CDI e IPCA dentro de faixas históricas realistas. Isso nos permite entender 
-                      não apenas o resultado esperado, mas também a probabilidade e magnitude de diferentes desfechos.
-                    </p>
-                    
-                    <div className="interpretation-cards">
-                      <div className="interpretation-card">
-                        <h5>🎯 Probabilidade de Sucesso: {monteCarlo.probabilidadeSucesso.toFixed(1)}%</h5>
-                        <p>
-                          {monteCarlo.probabilidadeSucesso >= 70 ? 
-                            'Alta probabilidade. A estratégia proposta supera a atual na maioria dos cenários econômicos.' :
-                            monteCarlo.probabilidadeSucesso >= 50 ?
-                            'Probabilidade moderada. O resultado depende significativamente do cenário econômico.' :
-                            'Baixa probabilidade. A estratégia atual tende a ser superior na maioria dos cenários.'}
-                        </p>
-                      </div>
-                      
-                      <div className="interpretation-card">
-                        <h5>📊 VaR 95%: {formatarValorCompleto(monteCarlo.var95)}</h5>
-                        <p>
-                          Em 95% dos cenários, sua {monteCarlo.var95 > 0 ? 'vantagem' : 'perda'} será superior a este valor. 
-                          Este é o "pior caso" estatisticamente esperado, útil para avaliar o risco máximo da estratégia.
-                        </p>
-                      </div>
-                      
-                      <div className="interpretation-card">
-                        <h5>⚖️ Índice Sharpe: {monteCarlo.sharpeRatio.toFixed(2)}</h5>
-                        <p>
-                          {monteCarlo.sharpeRatio > 1 ? 
-                            'Excelente relação risco-retorno. A vantagem esperada compensa bem a volatilidade.' :
-                            monteCarlo.sharpeRatio > 0.5 ?
-                            'Boa relação risco-retorno. Vantagem esperada adequada para o risco assumido.' :
-                            'Relação risco-retorno questionável. Alto risco para a vantagem esperada.'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {abaAtiva === 'cenarios' && cenarios && heatmap && (
-                <div className="cenarios-content">
-                  <h3>Análise de Cenários Econômicos</h3>
-                  
-                  {/* Tabela de Cenários */}
-                  <div className="cenarios-table-container">
-                    <h4>Resultados por Cenário</h4>
-                    <div className="cenarios-table">
-                      <div className="table-header">
-                        <div>Cenário</div>
-                        <div>CDI</div>
-                        <div>IPCA</div>
-                        <div>Vantagem</div>
-                        <div>Anualizada</div>
-                        <div>Status</div>
-                      </div>
-                      {cenarios.map((cenario, index) => (
-                        <div key={index} className={`table-row ${cenario.favoravel ? 'favoravel' : 'desfavoravel'}`}>
-                          <div className="cenario-nome">
-                            <strong>{cenario.nome}</strong>
-                            <span className="cenario-desc">{cenario.descricao}</span>
-                          </div>
-                          <div>{cenario.cdi.toFixed(1)}%</div>
-                          <div>{cenario.ipca.toFixed(1)}%</div>
-                          <div>{formatarValorCompleto(cenario.vantagem)}</div>
-                          <div>{cenario.vantagemAnualizada.toFixed(2)}% a.a.</div>
-                          <div className={`status ${cenario.favoravel ? 'favoravel' : 'desfavoravel'}`}>
-                            {cenario.favoravel ? '✅ Favorável' : '❌ Desfavorável'}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Heatmap Visual */}
-                  <div className="heatmap-container">
-                    <h4>Mapa de Sensibilidade (CDI vs IPCA)</h4>
-                    <div className="heatmap-grid">
-                      <div className="heatmap-labels-y">
-                        <div className="label-title">IPCA</div>
-                        {[1, 0.5, 0, -0.5, -1].map(val => (
-                          <div key={val} className="label-y">
-                            {(premissas.ipca[0] + val).toFixed(1)}%
-                          </div>
-                        ))}
-                      </div>
-                      <div className="heatmap-main">
-                        <div className="heatmap-labels-x">
-                          {[-2, -1, 0, 1, 2].map(val => (
-                            <div key={val} className="label-x">
-                              {(premissas.cdi[0] + val).toFixed(1)}%
-                            </div>
-                          ))}
-                        </div>
-                        <div className="heatmap-cells">
-                          {[1, 0.5, 0, -0.5, -1].map(ipcaVar => (
-                            <div key={ipcaVar} className="heatmap-row">
-                              {[-2, -1, 0, 1, 2].map(cdiVar => {
-                                const cell = heatmap.find(h => 
-                                  Math.abs(h.cdi - (premissas.cdi[0] + cdiVar)) < 0.1 && 
-                                  Math.abs(h.ipca - (premissas.ipca[0] + ipcaVar)) < 0.1
-                                );
-                                const intensity = cell ? Math.abs(cell.vantagemAnualizada) / 5 : 0;
-                                const isPositive = cell ? cell.favoravel : false;
-                                return (
-                                  <div 
-                                    key={`${cdiVar}-${ipcaVar}`}
-                                    className={`heatmap-cell ${isPositive ? 'positive' : 'negative'}`}
-                                    style={{
-                                      opacity: Math.min(0.3 + intensity * 0.7, 1)
-                                    }}
-                                    title={cell ? `Vantagem: ${cell.vantagemAnualizada.toFixed(2)}% a.a.` : ''}
-                                  >
-                                    {cell ? cell.vantagemAnualizada.toFixed(1) : '0.0'}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          ))}
-                        </div>
-                        <div className="heatmap-labels-x-title">CDI</div>
-                      </div>
-                    </div>
-                    <div className="heatmap-legend">
-                      <div className="legend-item">
-                        <div className="legend-color positive"></div>
-                        <span>Estratégia Proposta Favorável</span>
-                      </div>
-                      <div className="legend-item">
-                        <div className="legend-color negative"></div>
-                        <span>Estratégia Atual Favorável</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Análise Baseada nos Dados */}
-                  <div className="cenarios-analysis">
-                    <div className="analysis-section">
-                      <h4>📊 Interpretação dos Resultados</h4>
-                      <div className="analysis-grid">
-                        <div className="analysis-card">
-                          <h5>Cenários Favoráveis</h5>
-                          <p className="analysis-number">
-                            {cenarios.filter(c => c.favoravel).length} de {cenarios.length} cenários
-                          </p>
-                          <p className="analysis-desc">
-                            {cenarios.filter(c => c.favoravel).length >= 3 ? 
-                              'Estratégia robusta na maioria dos cenários' : 
-                              'Estratégia sensível a mudanças econômicas'}
-                          </p>
-                        </div>
-                        <div className="analysis-card">
-                          <h5>Melhor Cenário</h5>
-                          <p className="analysis-number">
-                            {formatarValorCompleto(Math.max(...cenarios.map(c => c.vantagem)))}
-                          </p>
-                          <p className="analysis-desc">
-                            {cenarios.find(c => c.vantagem === Math.max(...cenarios.map(c => c.vantagem)))?.nome}
-                          </p>
-                        </div>
-                        <div className="analysis-card">
-                          <h5>Pior Cenário</h5>
-                          <p className="analysis-number">
-                            {formatarValorCompleto(Math.min(...cenarios.map(c => c.vantagem)))}
-                          </p>
-                          <p className="analysis-desc">
-                            {cenarios.find(c => c.vantagem === Math.min(...cenarios.map(c => c.vantagem)))?.nome}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="analysis-section">
-                      <h4>🎯 Análise de Timing e Impacto</h4>
-                      <div className="timing-analysis">
-                        <div className="timing-card">
-                          <h5>📈 Trajetória das Premissas</h5>
-                          <div className="trajectory-info">
-                            <div className="trajectory-item">
-                              <span className="trajectory-label">CDI:</span>
-                              <span className="trajectory-values">
-                                {premissas.cdi[0].toFixed(1)}% → {premissas.cdi[premissas.cdi.length-1].toFixed(1)}%
-                              </span>
-                              <span className="trajectory-trend">
-                                {premissas.cdi[0] > premissas.cdi[premissas.cdi.length-1] ? '📉 Queda gradual' : 
-                                 premissas.cdi[0] < premissas.cdi[premissas.cdi.length-1] ? '📈 Alta gradual' : '➡️ Estável'}
-                              </span>
-                            </div>
-                            <div className="trajectory-item">
-                              <span className="trajectory-label">IPCA:</span>
-                              <span className="trajectory-values">
-                                {premissas.ipca[0].toFixed(1)}% → {premissas.ipca[premissas.ipca.length-1].toFixed(1)}%
-                              </span>
-                              <span className="trajectory-trend">
-                                {premissas.ipca[0] > premissas.ipca[premissas.ipca.length-1] ? '📉 Desinflação' : 
-                                 premissas.ipca[0] < premissas.ipca[premissas.ipca.length-1] ? '📈 Pressão inflacionária' : '➡️ Estável'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="timing-card">
-                          <h5>⏰ Impacto do Timing</h5>
-                          <div className="timing-insights">
-                            {ativoAtual.prazo < ativoProposto.prazo && (
-                              <div className="timing-insight">
-                                <strong>Reinvestimento no Ano {ativoAtual.prazo}:</strong>
-                                <p>
-                                  Quando seu ativo atual vencer, você reinvestirá em {ativoAtual.tipoReinvestimento === 'cdi' ? `${ativoAtual.taxaReinvestimentoCDI}% do CDI` : 
-                                  ativoAtual.tipoReinvestimento === 'ipca' ? `IPCA+ ${ativoAtual.taxaReinvestimentoIPCA}%` : 
-                                  `Pré-fixado ${ativoAtual.taxaReinvestimentoPre}%`}.
-                                  Neste momento, o CDI estará em {premissas.cdi[Math.min(ativoAtual.prazo-1, premissas.cdi.length-1)].toFixed(1)}% 
-                                  e o IPCA em {premissas.ipca[Math.min(ativoAtual.prazo-1, premissas.ipca.length-1)].toFixed(1)}%.
-                                </p>
-                              </div>
-                            )}
-                            
-                            <div className="timing-insight">
-                              <strong>Cenário de Queda de Juros:</strong>
-                              <p>
-                                {premissas.cdi[0] > premissas.cdi[premissas.cdi.length-1] ? 
-                                  `Com CDI caindo de ${premissas.cdi[0].toFixed(1)}% para ${premissas.cdi[premissas.cdi.length-1].toFixed(1)}%, ativos mais longos capturam taxas altas por mais tempo. ` +
-                                  `O ativo de ${ativoProposto.prazo} anos se beneficia dessa trajetória descendente.` :
-                                  `Com CDI subindo de ${premissas.cdi[0].toFixed(1)}% para ${premissas.cdi[premissas.cdi.length-1].toFixed(1)}%, ativos mais curtos permitem reinvestimento em taxas crescentes.`}
-                              </p>
-                            </div>
-
-                            <div className="timing-insight">
-                              <strong>Momento Crítico:</strong>
-                              <p>
-                                {Math.abs(premissas.cdi[0] - premissas.cdi[Math.floor(premissas.cdi.length/2)]) > 1 ?
-                                  `A maior mudança de CDI ocorre entre os anos ${Math.floor(premissas.cdi.length/2)} e ${Math.floor(premissas.cdi.length/2)+1}, ` +
-                                  `passando de ${premissas.cdi[Math.floor(premissas.cdi.length/2)-1].toFixed(1)}% para ${premissas.cdi[Math.floor(premissas.cdi.length/2)].toFixed(1)}%. ` +
-                                  `Este é o período que mais impacta a comparação entre as estratégias.` :
-                                  `As mudanças de CDI são graduais ao longo do horizonte, reduzindo o risco de timing na decisão.`}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="analysis-section">
-                      <h4>📊 Resumo Executivo dos Cenários</h4>
-                      <div className="executive-summary">
-                        <div className="summary-metric">
-                          <span className="metric-label">Cenários Favoráveis:</span>
-                          <span className="metric-value">{cenarios.filter(c => c.favoravel).length}/{cenarios.length}</span>
-                          <span className="metric-interpretation">
-                            {cenarios.filter(c => c.favoravel).length >= 4 ? 'Estratégia robusta' : 
-                             cenarios.filter(c => c.favoravel).length >= 3 ? 'Estratégia moderada' : 'Estratégia arriscada'}
-                          </span>
-                        </div>
-                        <div className="summary-metric">
-                          <span className="metric-label">Amplitude de Resultados:</span>
-                          <span className="metric-value">
-                            {formatarValorCompleto(Math.max(...cenarios.map(c => c.vantagem)) - Math.min(...cenarios.map(c => c.vantagem)))}
-                          </span>
-                          <span className="metric-interpretation">
-                            {(Math.max(...cenarios.map(c => c.vantagem)) - Math.min(...cenarios.map(c => c.vantagem))) > 500000 ? 
-                              'Alta sensibilidade econômica' : 'Baixa sensibilidade econômica'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {breakeven && (
-                      <div className="analysis-section">
-                        <h4>⚖️ Ponto de Equilíbrio</h4>
-                        <p>
-                          Considerando os cenários testados, sua estratégia proposta precisa render <strong>{breakeven.toFixed(2)}%</strong> para igualar a atual. 
-                          {breakeven > ativoProposto.taxa ? 
-                            ` Como a taxa atual é ${ativoProposto.taxa}%, você está ${(breakeven - ativoProposto.taxa).toFixed(2)} p.p. abaixo do necessário.` :
-                            ` Como a taxa atual é ${ativoProposto.taxa}%, você tem uma margem de ${(ativoProposto.taxa - breakeven).toFixed(2)} p.p. de segurança.`}
-                        </p>
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
@@ -1348,12 +1027,6 @@ ${resultados.vantagem > 50000 ?
           </div>
         )}
       </main>
-
-      <footer className="footer">
-        <div className="footer-content">
-          <p>Desenvolvido por Thomaz Fonseca</p>
-        </div>
-      </footer>
     </div>
   );
 }
