@@ -1043,7 +1043,7 @@ function App() {
                       </div>
                     </div>
 
-                    <div className="montecarlo-charts">
+                    <div className="montecarlo-charts-grid">
                       <div className="chart-container">
                         <h4>Distribuição de Resultados</h4>
                         <ResponsiveContainer width="100%" height={300}>
@@ -1057,137 +1057,238 @@ function App() {
                         </ResponsiveContainer>
                       </div>
 
-                      <div className="percentis-analysis">
-                        <h4>Análise de Percentis</h4>
-                        <div className="percentis-table">
-                          <div className="percentil-header">
-                            <span className="percentil-label">Percentil</span>
-                            <span className="percentil-value">Ganho Financeiro</span>
-                            <span className="percentil-value">Ganho Percentual</span>
-                            <span className="percentil-value">Ganho % Anualizado</span>
-                          </div>
-                          <div className="percentil-row">
-                            <span className="percentil-label">5% (Cenário Adverso)</span>
-                            <span className="percentil-value">{formatarValor(monteCarlo.percentis.p5)}</span>
-                            <span className="percentil-value">{formatarPercentual(monteCarlo.percentisPercentuais.p5)}</span>
-                            <span className="percentil-value">{formatarPercentual(monteCarlo.percentisAnualizados.p5)}</span>
-                          </div>
-                          <div className="percentil-row">
-                            <span className="percentil-label">25% (Cenário Conservador)</span>
-                            <span className="percentil-value">{formatarValor(monteCarlo.percentis.p25)}</span>
-                            <span className="percentil-value">{formatarPercentual(monteCarlo.percentisPercentuais.p25)}</span>
-                            <span className="percentil-value">{formatarPercentual(monteCarlo.percentisAnualizados.p25)}</span>
-                          </div>
-                          <div className="percentil-row">
-                            <span className="percentil-label">50% (Cenário Base)</span>
-                            <span className="percentil-value">{formatarValor(monteCarlo.mediana)}</span>
-                            <span className="percentil-value">{formatarPercentual((monteCarlo.mediana / resultados.valorFinalAtual) * 100)}</span>
-                            <span className="percentil-value">{formatarPercentual((Math.pow(1 + (monteCarlo.mediana / resultados.valorFinalAtual), 1/horizonte) - 1) * 100)}</span>
-                          </div>
-                          <div className="percentil-row">
-                            <span className="percentil-label">75% (Cenário Otimista)</span>
-                            <span className="percentil-value">{formatarValor(monteCarlo.percentis.p75)}</span>
-                            <span className="percentil-value">{formatarPercentual(monteCarlo.percentisPercentuais.p75)}</span>
-                            <span className="percentil-value">{formatarPercentual(monteCarlo.percentisAnualizados.p75)}</span>
-                          </div>
-                          <div className="percentil-row">
-                            <span className="percentil-label">95% (Cenário Muito Otimista)</span>
-                            <span className="percentil-value">{formatarValor(monteCarlo.percentis.p95)}</span>
-                            <span className="percentil-value">{formatarPercentual(monteCarlo.percentisPercentuais.p95)}</span>
-                            <span className="percentil-value">{formatarPercentual(monteCarlo.percentisAnualizados.p95)}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Gráfico de Assimetria de Risco */}
-                      <div className="chart-container">
+                      <div className="boxplot-container">
                         <div className="chart-header">
-                          <h4>Assimetria de Risco</h4>
+                          <h4>Box Plot - Assimetria de Risco</h4>
                           <button 
                             className="copy-chart-btn"
-                            onClick={() => copiarGrafico('assimetria')}
+                            onClick={() => copiarGrafico('boxplot')}
                             title="Copiar gráfico"
                           >
                             📋
                           </button>
                         </div>
-                        <div id="chart-assimetria">
+                        <div id="chart-boxplot">
                           <ResponsiveContainer width="100%" height={300}>
-                            <BarChart 
-                              data={[
-                                { cenario: 'Adverso (5%)', valor: monteCarlo.percentis.p5, label: 'Cenário Adverso' },
-                                { cenario: 'Conservador (25%)', valor: monteCarlo.percentis.p25, label: 'Cenário Conservador' },
-                                { cenario: 'Base (50%)', valor: monteCarlo.mediana, label: 'Cenário Base' },
-                                { cenario: 'Otimista (75%)', valor: monteCarlo.percentis.p75, label: 'Cenário Otimista' },
-                                { cenario: 'Muito Otimista (95%)', valor: monteCarlo.percentis.p95, label: 'Cenário Muito Otimista' }
-                              ]}
-                              layout="horizontal"
-                              margin={{ top: 20, right: 30, left: 120, bottom: 20 }}
+                            <ComposedChart
+                              data={[{
+                                name: '',
+                                dummy: 0
+                              }]}
+                              margin={{ top: 20, right: 60, left: 60, bottom: 20 }}
                             >
                               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                               <XAxis 
-                                type="number" 
+                                dataKey="name" 
+                                axisLine={false}
+                                tickLine={false}
+                                tick={false}
+                              />
+                              <YAxis 
+                                domain={[
+                                  Math.min(monteCarlo.percentis.p5 * 1.1, monteCarlo.percentis.p5 * 0.9),
+                                  Math.max(monteCarlo.percentis.p95 * 1.1, monteCarlo.percentis.p95 * 0.9)
+                                ]}
                                 tickFormatter={formatarValor}
                                 stroke="#64748b"
                               />
-                              <YAxis 
-                                type="category" 
-                                dataKey="cenario" 
-                                width={100}
-                                stroke="#64748b"
+                              <Tooltip content={() => null} />
+                              
+                              {/* Box Plot Manual */}
+                              <ReferenceLine 
+                                y={monteCarlo.percentis.p5} 
+                                stroke="#64748b" 
+                                strokeWidth={2}
+                                label={{ value: "Min (5%)", position: "right", offset: 10 }}
                               />
-                              <Tooltip 
-                                formatter={(value, name) => [formatarValor(value), 'Resultado']}
-                                labelStyle={{ color: '#1e293b' }}
-                                contentStyle={{ 
-                                  backgroundColor: '#ffffff', 
-                                  border: '1px solid #e2e8f0',
-                                  borderRadius: '8px'
-                                }}
+                              <ReferenceLine 
+                                y={monteCarlo.percentis.p25} 
+                                stroke="#64748b" 
+                                strokeWidth={2}
                               />
-                              <ReferenceLine x={0} stroke="#64748b" strokeDasharray="2 2" />
+                              <ReferenceLine 
+                                y={monteCarlo.mediana} 
+                                stroke="#1e293b" 
+                                strokeWidth={3}
+                                label={{ value: "Mediana", position: "right", offset: 10 }}
+                              />
+                              <ReferenceLine 
+                                y={monteCarlo.percentis.p75} 
+                                stroke="#64748b" 
+                                strokeWidth={2}
+                              />
+                              <ReferenceLine 
+                                y={monteCarlo.percentis.p95} 
+                                stroke="#64748b" 
+                                strokeWidth={2}
+                                label={{ value: "Max (95%)", position: "right", offset: 10 }}
+                              />
+                              
+                              {/* Caixa do Box Plot */}
                               <Bar 
-                                dataKey="valor" 
-                                fill="#64748b"
-                                radius={[0, 4, 4, 0]}
+                                dataKey="dummy"
+                                fill="transparent"
+                                stroke="#64748b"
+                                strokeWidth={2}
                               />
-                            </BarChart>
+                            </ComposedChart>
                           </ResponsiveContainer>
+                          
+                          {/* Box Plot SVG Customizado */}
+                          <div className="boxplot-custom">
+                            <svg width="100%" height="300" viewBox="0 0 400 300">
+                              <defs>
+                                <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                                  <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#e2e8f0" strokeWidth="1" strokeDasharray="2,2"/>
+                                </pattern>
+                              </defs>
+                              
+                              {/* Grid de fundo */}
+                              <rect width="100%" height="100%" fill="url(#grid)" />
+                              
+                              {/* Eixo Y */}
+                              <line x1="60" y1="40" x2="60" y2="260" stroke="#64748b" strokeWidth="1"/>
+                              
+                              {/* Cálculo das posições Y */}
+                              {(() => {
+                                const min = Math.min(monteCarlo.percentis.p5, monteCarlo.percentis.p95);
+                                const max = Math.max(monteCarlo.percentis.p5, monteCarlo.percentis.p95);
+                                const range = max - min;
+                                const padding = range * 0.1;
+                                const totalRange = range + 2 * padding;
+                                
+                                const getY = (value) => {
+                                  const normalized = (max + padding - value) / totalRange;
+                                  return 40 + normalized * 220;
+                                };
+                                
+                                const y5 = getY(monteCarlo.percentis.p5);
+                                const y25 = getY(monteCarlo.percentis.p25);
+                                const yMedian = getY(monteCarlo.mediana);
+                                const y75 = getY(monteCarlo.percentis.p75);
+                                const y95 = getY(monteCarlo.percentis.p95);
+                                
+                                return (
+                                  <g>
+                                    {/* Bigode inferior */}
+                                    <line x1="100" y1={y5} x2="100" y2={y25} stroke="#64748b" strokeWidth="2"/>
+                                    <line x1="85" y1={y5} x2="115" y2={y5} stroke="#64748b" strokeWidth="2"/>
+                                    
+                                    {/* Caixa */}
+                                    <rect 
+                                      x="85" 
+                                      y={y75} 
+                                      width="30" 
+                                      height={y25 - y75} 
+                                      fill="rgba(100, 116, 139, 0.1)" 
+                                      stroke="#64748b" 
+                                      strokeWidth="2"
+                                    />
+                                    
+                                    {/* Mediana */}
+                                    <line x1="85" y1={yMedian} x2="115" y2={yMedian} stroke="#1e293b" strokeWidth="3"/>
+                                    
+                                    {/* Bigode superior */}
+                                    <line x1="100" y1={y75} x2="100" y2={y95} stroke="#64748b" strokeWidth="2"/>
+                                    <line x1="85" y1={y95} x2="115" y2={y95} stroke="#64748b" strokeWidth="2"/>
+                                    
+                                    {/* Labels */}
+                                    <text x="125" y={y95 + 5} fontSize="12" fill="#64748b">Max (95%): {formatarValor(monteCarlo.percentis.p95)}</text>
+                                    <text x="125" y={y75 + 5} fontSize="12" fill="#64748b">Q3 (75%): {formatarValor(monteCarlo.percentis.p75)}</text>
+                                    <text x="125" y={yMedian + 5} fontSize="12" fill="#1e293b" fontWeight="bold">Mediana: {formatarValor(monteCarlo.mediana)}</text>
+                                    <text x="125" y={y25 + 5} fontSize="12" fill="#64748b">Q1 (25%): {formatarValor(monteCarlo.percentis.p25)}</text>
+                                    <text x="125" y={y5 + 5} fontSize="12" fill="#64748b">Min (5%): {formatarValor(monteCarlo.percentis.p5)}</text>
+                                    
+                                    {/* Eixo Y com valores */}
+                                    <text x="45" y={y95 + 5} fontSize="10" fill="#64748b" textAnchor="end">{formatarValor(monteCarlo.percentis.p95)}</text>
+                                    <text x="45" y={y75 + 5} fontSize="10" fill="#64748b" textAnchor="end">{formatarValor(monteCarlo.percentis.p75)}</text>
+                                    <text x="45" y={yMedian + 5} fontSize="10" fill="#64748b" textAnchor="end">{formatarValor(monteCarlo.mediana)}</text>
+                                    <text x="45" y={y25 + 5} fontSize="10" fill="#64748b" textAnchor="end">{formatarValor(monteCarlo.percentis.p25)}</text>
+                                    <text x="45" y={y5 + 5} fontSize="10" fill="#64748b" textAnchor="end">{formatarValor(monteCarlo.percentis.p5)}</text>
+                                  </g>
+                                );
+                              })()}
+                              
+                              {/* Título do eixo Y */}
+                              <text x="20" y="150" fontSize="12" fill="#64748b" textAnchor="middle" transform="rotate(-90, 20, 150)">
+                                Resultado (R$)
+                              </text>
+                            </svg>
+                          </div>
                         </div>
-                        <div className="assimetria-analysis">
-                          <div className="assimetria-stats">
-                            <div className="assimetria-stat">
-                              <span className="stat-label">Perda Máxima (5%)</span>
-                              <span className="stat-value negative">{formatarValor(monteCarlo.percentis.p5)}</span>
+                        
+                        <div className="assimetria-analysis-compact">
+                          <div className="assimetria-stats-compact">
+                            <div className="assimetria-stat-compact">
+                              <span className="stat-label-compact">Perda Máxima (5%)</span>
+                              <span className="stat-value-compact negative">{formatarValor(monteCarlo.percentis.p5)}</span>
                             </div>
-                            <div className="assimetria-separator">vs</div>
-                            <div className="assimetria-stat">
-                              <span className="stat-label">Ganho Máximo (95%)</span>
-                              <span className="stat-value positive">{formatarValor(monteCarlo.percentis.p95)}</span>
+                            <div className="assimetria-separator-compact">vs</div>
+                            <div className="assimetria-stat-compact">
+                              <span className="stat-label-compact">Ganho Máximo (95%)</span>
+                              <span className="stat-value-compact positive">{formatarValor(monteCarlo.percentis.p95)}</span>
                             </div>
-                            <div className="assimetria-ratio">
-                              <span className="ratio-label">Ratio Risco-Retorno</span>
-                              <span className="ratio-value">
+                            <div className="assimetria-ratio-compact">
+                              <span className="ratio-label-compact">Ratio</span>
+                              <span className="ratio-value-compact">
                                 {(Math.abs(monteCarlo.percentis.p95) / Math.abs(monteCarlo.percentis.p5)).toFixed(1)}:1
                               </span>
                             </div>
                           </div>
-                          <div className="assimetria-insight">
+                          <div className="assimetria-insight-compact">
                             <p>
                               <strong>Análise de Assimetria:</strong> {(() => {
                                 const ratio = Math.abs(monteCarlo.percentis.p95) / Math.abs(monteCarlo.percentis.p5);
                                 if (ratio > 3) {
-                                  return `Assimetria muito favorável - o ganho potencial é ${ratio.toFixed(1)}x maior que a perda máxima. Esta troca oferece excelente relação risco-retorno.`;
+                                  return `Assimetria muito favorável - ganho potencial ${ratio.toFixed(1)}x maior que a perda máxima.`;
                                 } else if (ratio > 2) {
-                                  return `Assimetria favorável - o ganho potencial supera a perda máxima em ${ratio.toFixed(1)}x. Risco compensado pelo potencial de retorno.`;
+                                  return `Assimetria favorável - ganho potencial ${ratio.toFixed(1)}x maior que a perda máxima.`;
                                 } else if (ratio > 1.5) {
-                                  return `Assimetria moderada - ganho potencial ${ratio.toFixed(1)}x maior que perda máxima. Risco equilibrado.`;
+                                  return `Assimetria moderada - ganho potencial ${ratio.toFixed(1)}x maior que a perda máxima.`;
                                 } else {
-                                  return `Assimetria limitada - ganho e perda potenciais similares. Avaliar cuidadosamente o risco.`;
+                                  return `Assimetria limitada - ganho e perda potenciais similares.`;
                                 }
                               })()}
                             </p>
                           </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="percentis-analysis-horizontal">
+                      <h4>Análise de Percentis</h4>
+                      <div className="percentis-table-horizontal">
+                        <div className="percentis-header-horizontal">
+                          <div className="percentis-metric">Métrica</div>
+                          <div className="percentis-scenario">Adverso (5%)</div>
+                          <div className="percentis-scenario">Conservador (25%)</div>
+                          <div className="percentis-scenario">Base (50%)</div>
+                          <div className="percentis-scenario">Otimista (75%)</div>
+                          <div className="percentis-scenario">Muito Otimista (95%)</div>
+                        </div>
+                        <div className="percentis-row-horizontal">
+                          <div className="percentis-metric">Ganho Financeiro</div>
+                          <div className="percentis-value">{formatarValor(monteCarlo.percentis.p5)}</div>
+                          <div className="percentis-value">{formatarValor(monteCarlo.percentis.p25)}</div>
+                          <div className="percentis-value">{formatarValor(monteCarlo.mediana)}</div>
+                          <div className="percentis-value">{formatarValor(monteCarlo.percentis.p75)}</div>
+                          <div className="percentis-value">{formatarValor(monteCarlo.percentis.p95)}</div>
+                        </div>
+                        <div className="percentis-row-horizontal">
+                          <div className="percentis-metric">Ganho Percentual</div>
+                          <div className="percentis-value">{formatarPercentual(monteCarlo.percentisPercentuais.p5)}</div>
+                          <div className="percentis-value">{formatarPercentual(monteCarlo.percentisPercentuais.p25)}</div>
+                          <div className="percentis-value">{formatarPercentual((monteCarlo.mediana / resultados.valorFinalAtual) * 100)}</div>
+                          <div className="percentis-value">{formatarPercentual(monteCarlo.percentisPercentuais.p75)}</div>
+                          <div className="percentis-value">{formatarPercentual(monteCarlo.percentisPercentuais.p95)}</div>
+                        </div>
+                        <div className="percentis-row-horizontal">
+                          <div className="percentis-metric">Ganho % Anualizado</div>
+                          <div className="percentis-value">{formatarPercentual(monteCarlo.percentisAnualizados.p5)}</div>
+                          <div className="percentis-value">{formatarPercentual(monteCarlo.percentisAnualizados.p25)}</div>
+                          <div className="percentis-value">{formatarPercentual((Math.pow(1 + (monteCarlo.mediana / resultados.valorFinalAtual), 1/horizonte) - 1) * 100)}</div>
+                          <div className="percentis-value">{formatarPercentual(monteCarlo.percentisAnualizados.p75)}</div>
+                          <div className="percentis-value">{formatarPercentual(monteCarlo.percentisAnualizados.p95)}</div>
                         </div>
                       </div>
                     </div>
