@@ -3,7 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import './App.css';
 
 // Função para calcular valor futuro
-const calcularValorFuturo = (valorInicial, indexador, taxa, prazo, premissas, horizonte, tipoReinvestimento, taxaReinvestimento, aliquotaIR) => {
+const calcularValorFuturo = (valorInicial, indexador, taxa, prazo, premissas, horizonte, tipoReinvestimento, taxasReinvestimento, aliquotaIR) => {
   let valor = valorInicial;
   
   for (let ano = 1; ano <= horizonte; ano++) {
@@ -19,10 +19,15 @@ const calcularValorFuturo = (valorInicial, indexador, taxa, prazo, premissas, ho
         valor *= (1 + (ipcaAno + taxa) / 100);
       }
     } else {
-      // Período de reinvestimento
+      // Período de reinvestimento com taxa específica
       if (tipoReinvestimento === 'cdi') {
         const cdiAno = premissas.cdi[Math.min(ano - 1, premissas.cdi.length - 1)];
-        valor *= (1 + (cdiAno * taxaReinvestimento / 100) / 100);
+        valor *= (1 + (cdiAno * taxasReinvestimento.cdi / 100) / 100);
+      } else if (tipoReinvestimento === 'ipca') {
+        const ipcaAno = premissas.ipca[Math.min(ano - 1, premissas.ipca.length - 1)];
+        valor *= (1 + (ipcaAno + taxasReinvestimento.ipca) / 100);
+      } else if (tipoReinvestimento === 'pre') {
+        valor *= (1 + taxasReinvestimento.pre / 100);
       }
     }
   }
@@ -57,7 +62,11 @@ const simularMonteCarlo = (ativoAtual, ativoProposto, premissas, horizonte) => {
       premissasVariadas,
       horizonte,
       ativoAtual.tipoReinvestimento,
-      ativoAtual.taxaReinvestimento,
+      {
+        cdi: ativoAtual.taxaReinvestimentoCDI,
+        ipca: ativoAtual.taxaReinvestimentoIPCA,
+        pre: ativoAtual.taxaReinvestimentoPre
+      },
       ativoAtual.aliquotaIR
     );
 
@@ -69,7 +78,7 @@ const simularMonteCarlo = (ativoAtual, ativoProposto, premissas, horizonte) => {
       premissasVariadas,
       horizonte,
       'cdi',
-      100,
+      { cdi: 100, ipca: 6, pre: 12 },
       ativoProposto.aliquotaIR
     );
 
@@ -377,7 +386,9 @@ function App() {
     prazo: 2,
     valorInvestido: 1000000,
     tipoReinvestimento: 'cdi',
-    taxaReinvestimento: 100,
+    taxaReinvestimentoCDI: 100,
+    taxaReinvestimentoIPCA: 6,
+    taxaReinvestimentoPre: 12,
     aliquotaIR: 0
   });
 
@@ -553,162 +564,224 @@ ${resultados.vantagem > 50000 ?
 
       <main className="main">
         <div className="container">
-          {/* Cards de Input */}
-          <div className="input-cards">
-            {/* Card Premissas */}
-            <div className="input-card">
-              <h3>Premissas Macroeconômicas</h3>
-              <div className="premissas-table">
-                <div className="table-header">
-                  <div>Ano</div>
-                  <div>CDI (%)</div>
-                  <div>IPCA (%)</div>
-                </div>
-                {premissas.cdi.map((_, index) => (
-                  <div key={index} className="table-row">
-                    <div>Ano {index + 1}</div>
-                    <div>
+          {/* Cards de Input COMPACTOS */}
+          <div className="input-cards-compact">
+            {/* Card Premissas Compacto */}
+            <div className="input-card-compact premissas-card">
+              <h3>📊 Premissas Macroeconômicas</h3>
+              <div className="premissas-compact">
+                <div className="premissa-row">
+                  <span className="premissa-label">CDI:</span>
+                  <div className="premissa-inputs">
+                    {premissas.cdi.map((valor, index) => (
                       <input
+                        key={index}
                         type="number"
                         step="0.1"
-                        value={premissas.cdi[index]}
+                        value={valor}
                         onChange={(e) => {
                           const novasCDI = [...premissas.cdi];
                           novasCDI[index] = parseFloat(e.target.value) || 0;
                           setPremissas({...premissas, cdi: novasCDI});
                         }}
-                        className="input-tiny"
+                        className="input-micro"
+                        placeholder={`A${index + 1}`}
                       />
-                    </div>
-                    <div>
+                    ))}
+                    <span className="premissa-unit">%</span>
+                  </div>
+                </div>
+                <div className="premissa-row">
+                  <span className="premissa-label">IPCA:</span>
+                  <div className="premissa-inputs">
+                    {premissas.ipca.map((valor, index) => (
                       <input
+                        key={index}
                         type="number"
                         step="0.1"
-                        value={premissas.ipca[index]}
+                        value={valor}
                         onChange={(e) => {
                           const novasIPCA = [...premissas.ipca];
                           novasIPCA[index] = parseFloat(e.target.value) || 0;
                           setPremissas({...premissas, ipca: novasIPCA});
                         }}
-                        className="input-tiny"
+                        className="input-micro"
+                        placeholder={`A${index + 1}`}
                       />
+                    ))}
+                    <span className="premissa-unit">%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Card Ativo Atual Compacto */}
+            <div className="input-card-compact ativo-card">
+              <h3>🔴 Ativo Atual</h3>
+              <div className="ativo-inputs">
+                <div className="input-row">
+                  <select
+                    value={ativoAtual.indexador}
+                    onChange={(e) => setAtivoAtual({...ativoAtual, indexador: e.target.value})}
+                    className="input-compact"
+                  >
+                    <option value="pre">Pré-fixado</option>
+                    <option value="pos">Pós-fixado</option>
+                    <option value="ipca">IPCA+</option>
+                  </select>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={ativoAtual.taxa}
+                    onChange={(e) => setAtivoAtual({...ativoAtual, taxa: parseFloat(e.target.value) || 0})}
+                    className="input-compact"
+                    placeholder="Taxa %"
+                  />
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={ativoAtual.prazo}
+                    onChange={(e) => setAtivoAtual({...ativoAtual, prazo: parseFloat(e.target.value) || 0})}
+                    className="input-compact"
+                    placeholder="Anos"
+                  />
+                </div>
+                <div className="input-row">
+                  <input
+                    type="number"
+                    step="1000"
+                    value={ativoAtual.valorInvestido}
+                    onChange={(e) => setAtivoAtual({...ativoAtual, valorInvestido: parseFloat(e.target.value) || 0})}
+                    className="input-compact valor-input"
+                    placeholder="Valor R$"
+                  />
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="22.5"
+                    value={ativoAtual.aliquotaIR}
+                    onChange={(e) => setAtivoAtual({...ativoAtual, aliquotaIR: parseFloat(e.target.value) || 0})}
+                    className="input-compact"
+                    placeholder="IR %"
+                  />
+                </div>
+                
+                {/* Reinvestimento Específico por Indexador */}
+                <div className="reinvestimento-section">
+                  <label className="reinvest-label">Reinvestimento após vencimento:</label>
+                  <div className="reinvest-options">
+                    <div className="reinvest-option">
+                      <input
+                        type="radio"
+                        id="reinvest-cdi"
+                        name="reinvestimento"
+                        value="cdi"
+                        checked={ativoAtual.tipoReinvestimento === 'cdi'}
+                        onChange={(e) => setAtivoAtual({...ativoAtual, tipoReinvestimento: e.target.value})}
+                      />
+                      <label htmlFor="reinvest-cdi">CDI</label>
+                      <input
+                        type="number"
+                        step="1"
+                        value={ativoAtual.taxaReinvestimentoCDI || 100}
+                        onChange={(e) => setAtivoAtual({...ativoAtual, taxaReinvestimentoCDI: parseFloat(e.target.value) || 100})}
+                        className="input-micro"
+                        disabled={ativoAtual.tipoReinvestimento !== 'cdi'}
+                      />
+                      <span>%</span>
+                    </div>
+                    <div className="reinvest-option">
+                      <input
+                        type="radio"
+                        id="reinvest-ipca"
+                        name="reinvestimento"
+                        value="ipca"
+                        checked={ativoAtual.tipoReinvestimento === 'ipca'}
+                        onChange={(e) => setAtivoAtual({...ativoAtual, tipoReinvestimento: e.target.value})}
+                      />
+                      <label htmlFor="reinvest-ipca">IPCA+</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={ativoAtual.taxaReinvestimentoIPCA || 6}
+                        onChange={(e) => setAtivoAtual({...ativoAtual, taxaReinvestimentoIPCA: parseFloat(e.target.value) || 6})}
+                        className="input-micro"
+                        disabled={ativoAtual.tipoReinvestimento !== 'ipca'}
+                      />
+                      <span>%</span>
+                    </div>
+                    <div className="reinvest-option">
+                      <input
+                        type="radio"
+                        id="reinvest-pre"
+                        name="reinvestimento"
+                        value="pre"
+                        checked={ativoAtual.tipoReinvestimento === 'pre'}
+                        onChange={(e) => setAtivoAtual({...ativoAtual, tipoReinvestimento: e.target.value})}
+                      />
+                      <label htmlFor="reinvest-pre">Pré</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={ativoAtual.taxaReinvestimentoPre || 12}
+                        onChange={(e) => setAtivoAtual({...ativoAtual, taxaReinvestimentoPre: parseFloat(e.target.value) || 12})}
+                        className="input-micro"
+                        disabled={ativoAtual.tipoReinvestimento !== 'pre'}
+                      />
+                      <span>%</span>
                     </div>
                   </div>
-                ))}
+                </div>
               </div>
             </div>
 
-            {/* Card Ativo Atual */}
-            <div className="input-card">
-              <h3>Ativo Atual</h3>
-              <div className="input-group">
-                <label>Indexador</label>
-                <select
-                  value={ativoAtual.indexador}
-                  onChange={(e) => setAtivoAtual({...ativoAtual, indexador: e.target.value})}
-                  className="input-field"
-                >
-                  <option value="pre">Pré-fixado</option>
-                  <option value="pos">Pós-fixado (CDI)</option>
-                  <option value="ipca">IPCA+</option>
-                </select>
-              </div>
-              <div className="input-group">
-                <label>Taxa (%)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={ativoAtual.taxa}
-                  onChange={(e) => setAtivoAtual({...ativoAtual, taxa: parseFloat(e.target.value) || 0})}
-                  className="input-field"
-                />
-              </div>
-              <div className="input-group">
-                <label>Prazo (anos)</label>
-                <input
-                  type="number"
-                  step="0.5"
-                  value={ativoAtual.prazo}
-                  onChange={(e) => setAtivoAtual({...ativoAtual, prazo: parseFloat(e.target.value) || 0})}
-                  className="input-field"
-                />
-              </div>
-              <div className="input-group">
-                <label>Valor Investido (R$)</label>
-                <input
-                  type="number"
-                  step="1000"
-                  value={ativoAtual.valorInvestido}
-                  onChange={(e) => setAtivoAtual({...ativoAtual, valorInvestido: parseFloat(e.target.value) || 0})}
-                  className="input-field"
-                />
-              </div>
-              <div className="input-group">
-                <label>Alíquota IR (%)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="22.5"
-                  value={ativoAtual.aliquotaIR}
-                  onChange={(e) => setAtivoAtual({...ativoAtual, aliquotaIR: parseFloat(e.target.value) || 0})}
-                  className="input-field"
-                />
-              </div>
-            </div>
-
-            {/* Card Ativo Proposto */}
-            <div className="input-card">
-              <h3>Ativo Proposto</h3>
-              <div className="input-group">
-                <label>Indexador</label>
-                <select
-                  value={ativoProposto.indexador}
-                  onChange={(e) => setAtivoProposto({...ativoProposto, indexador: e.target.value})}
-                  className="input-field"
-                >
-                  <option value="pre">Pré-fixado</option>
-                  <option value="pos">Pós-fixado (CDI)</option>
-                  <option value="ipca">IPCA+</option>
-                </select>
-              </div>
-              <div className="input-group">
-                <label>Taxa (%)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={ativoProposto.taxa}
-                  onChange={(e) => setAtivoProposto({...ativoProposto, taxa: parseFloat(e.target.value) || 0})}
-                  className="input-field"
-                />
-              </div>
-              <div className="input-group">
-                <label>Prazo (anos)</label>
-                <input
-                  type="number"
-                  step="0.5"
-                  value={ativoProposto.prazo}
-                  onChange={(e) => setAtivoProposto({...ativoProposto, prazo: parseFloat(e.target.value) || 0})}
-                  className="input-field"
-                />
-              </div>
-              <div className="input-group">
-                <label>Alíquota IR (%)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="22.5"
-                  value={ativoProposto.aliquotaIR}
-                  onChange={(e) => setAtivoProposto({...ativoProposto, aliquotaIR: parseFloat(e.target.value) || 0})}
-                  className="input-field"
-                />
-              </div>
-              <div className="info-display">
-                <label>Horizonte de Análise</label>
-                <div className="horizonte-info">
-                  <span className="horizonte-value">{horizonte} anos</span>
-                  <span className="horizonte-desc">(Prazo do ativo mais longo)</span>
+            {/* Card Ativo Proposto Compacto */}
+            <div className="input-card-compact ativo-card">
+              <h3>🟢 Ativo Proposto</h3>
+              <div className="ativo-inputs">
+                <div className="input-row">
+                  <select
+                    value={ativoProposto.indexador}
+                    onChange={(e) => setAtivoProposto({...ativoProposto, indexador: e.target.value})}
+                    className="input-compact"
+                  >
+                    <option value="pre">Pré-fixado</option>
+                    <option value="pos">Pós-fixado</option>
+                    <option value="ipca">IPCA+</option>
+                  </select>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={ativoProposto.taxa}
+                    onChange={(e) => setAtivoProposto({...ativoProposto, taxa: parseFloat(e.target.value) || 0})}
+                    className="input-compact"
+                    placeholder="Taxa %"
+                  />
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={ativoProposto.prazo}
+                    onChange={(e) => setAtivoProposto({...ativoProposto, prazo: parseFloat(e.target.value) || 0})}
+                    className="input-compact"
+                    placeholder="Anos"
+                  />
+                </div>
+                <div className="input-row">
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="22.5"
+                    value={ativoProposto.aliquotaIR}
+                    onChange={(e) => setAtivoProposto({...ativoProposto, aliquotaIR: parseFloat(e.target.value) || 0})}
+                    className="input-compact"
+                    placeholder="IR %"
+                  />
+                  <div className="horizonte-display">
+                    <span className="horizonte-label">Horizonte:</span>
+                    <span className="horizonte-value">{horizonte} anos</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1147,13 +1220,96 @@ ${resultados.vantagem > 50000 ?
                     </div>
 
                     <div className="analysis-section">
-                      <h4>🎯 Insights Específicos dos Seus Dados</h4>
-                      <div className="insights-list">
-                        {cenarios.map((cenario, index) => (
-                          <div key={index} className={`insight-item ${cenario.favoravel ? 'positive' : 'negative'}`}>
-                            <strong>{cenario.nome}:</strong> {cenario.descricao} resulta em {cenario.favoravel ? 'vantagem' : 'desvantagem'} de {formatarValorCompleto(Math.abs(cenario.vantagem))} ({Math.abs(cenario.vantagemAnualizada).toFixed(2)}% a.a.)
+                      <h4>🎯 Análise de Timing e Impacto</h4>
+                      <div className="timing-analysis">
+                        <div className="timing-card">
+                          <h5>📈 Trajetória das Premissas</h5>
+                          <div className="trajectory-info">
+                            <div className="trajectory-item">
+                              <span className="trajectory-label">CDI:</span>
+                              <span className="trajectory-values">
+                                {premissas.cdi[0].toFixed(1)}% → {premissas.cdi[premissas.cdi.length-1].toFixed(1)}%
+                              </span>
+                              <span className="trajectory-trend">
+                                {premissas.cdi[0] > premissas.cdi[premissas.cdi.length-1] ? '📉 Queda gradual' : 
+                                 premissas.cdi[0] < premissas.cdi[premissas.cdi.length-1] ? '📈 Alta gradual' : '➡️ Estável'}
+                              </span>
+                            </div>
+                            <div className="trajectory-item">
+                              <span className="trajectory-label">IPCA:</span>
+                              <span className="trajectory-values">
+                                {premissas.ipca[0].toFixed(1)}% → {premissas.ipca[premissas.ipca.length-1].toFixed(1)}%
+                              </span>
+                              <span className="trajectory-trend">
+                                {premissas.ipca[0] > premissas.ipca[premissas.ipca.length-1] ? '📉 Desinflação' : 
+                                 premissas.ipca[0] < premissas.ipca[premissas.ipca.length-1] ? '📈 Pressão inflacionária' : '➡️ Estável'}
+                              </span>
+                            </div>
                           </div>
-                        ))}
+                        </div>
+
+                        <div className="timing-card">
+                          <h5>⏰ Impacto do Timing</h5>
+                          <div className="timing-insights">
+                            {ativoAtual.prazo < ativoProposto.prazo && (
+                              <div className="timing-insight">
+                                <strong>Reinvestimento no Ano {ativoAtual.prazo}:</strong>
+                                <p>
+                                  Quando seu ativo atual vencer, você reinvestirá em {ativoAtual.tipoReinvestimento === 'cdi' ? `${ativoAtual.taxaReinvestimentoCDI}% do CDI` : 
+                                  ativoAtual.tipoReinvestimento === 'ipca' ? `IPCA+ ${ativoAtual.taxaReinvestimentoIPCA}%` : 
+                                  `Pré-fixado ${ativoAtual.taxaReinvestimentoPre}%`}.
+                                  Neste momento, o CDI estará em {premissas.cdi[Math.min(ativoAtual.prazo-1, premissas.cdi.length-1)].toFixed(1)}% 
+                                  e o IPCA em {premissas.ipca[Math.min(ativoAtual.prazo-1, premissas.ipca.length-1)].toFixed(1)}%.
+                                </p>
+                              </div>
+                            )}
+                            
+                            <div className="timing-insight">
+                              <strong>Cenário de Queda de Juros:</strong>
+                              <p>
+                                {premissas.cdi[0] > premissas.cdi[premissas.cdi.length-1] ? 
+                                  `Com CDI caindo de ${premissas.cdi[0].toFixed(1)}% para ${premissas.cdi[premissas.cdi.length-1].toFixed(1)}%, ativos mais longos capturam taxas altas por mais tempo. ` +
+                                  `O ativo de ${ativoProposto.prazo} anos se beneficia dessa trajetória descendente.` :
+                                  `Com CDI subindo de ${premissas.cdi[0].toFixed(1)}% para ${premissas.cdi[premissas.cdi.length-1].toFixed(1)}%, ativos mais curtos permitem reinvestimento em taxas crescentes.`}
+                              </p>
+                            </div>
+
+                            <div className="timing-insight">
+                              <strong>Momento Crítico:</strong>
+                              <p>
+                                {Math.abs(premissas.cdi[0] - premissas.cdi[Math.floor(premissas.cdi.length/2)]) > 1 ?
+                                  `A maior mudança de CDI ocorre entre os anos ${Math.floor(premissas.cdi.length/2)} e ${Math.floor(premissas.cdi.length/2)+1}, ` +
+                                  `passando de ${premissas.cdi[Math.floor(premissas.cdi.length/2)-1].toFixed(1)}% para ${premissas.cdi[Math.floor(premissas.cdi.length/2)].toFixed(1)}%. ` +
+                                  `Este é o período que mais impacta a comparação entre as estratégias.` :
+                                  `As mudanças de CDI são graduais ao longo do horizonte, reduzindo o risco de timing na decisão.`}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="analysis-section">
+                      <h4>📊 Resumo Executivo dos Cenários</h4>
+                      <div className="executive-summary">
+                        <div className="summary-metric">
+                          <span className="metric-label">Cenários Favoráveis:</span>
+                          <span className="metric-value">{cenarios.filter(c => c.favoravel).length}/{cenarios.length}</span>
+                          <span className="metric-interpretation">
+                            {cenarios.filter(c => c.favoravel).length >= 4 ? 'Estratégia robusta' : 
+                             cenarios.filter(c => c.favoravel).length >= 3 ? 'Estratégia moderada' : 'Estratégia arriscada'}
+                          </span>
+                        </div>
+                        <div className="summary-metric">
+                          <span className="metric-label">Amplitude de Resultados:</span>
+                          <span className="metric-value">
+                            {formatarValorCompleto(Math.max(...cenarios.map(c => c.vantagem)) - Math.min(...cenarios.map(c => c.vantagem)))}
+                          </span>
+                          <span className="metric-interpretation">
+                            {(Math.max(...cenarios.map(c => c.vantagem)) - Math.min(...cenarios.map(c => c.vantagem))) > 500000 ? 
+                              'Alta sensibilidade econômica' : 'Baixa sensibilidade econômica'}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
