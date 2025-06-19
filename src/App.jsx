@@ -796,214 +796,6 @@ const formatarPercentual = (valor) => {
   return `${valor.toFixed(1)}%`;
 };
 
-// Funções auxiliares do Laboratório Interativo
-
-// Simular Monte Carlo específico para um cenário
-const simularMonteCarloEspecifico = (cenario, ativoAtual, ativoProposto, numSimulacoes, horizonte) => {
-  const resultados = [];
-  
-  for (let i = 0; i < numSimulacoes; i++) {
-    // Gerar variações aleatórias baseadas no cenário
-    const premissasVariadas = {
-      cdi: cenario.parametros.selic.map(taxa => taxa + (Math.random() - 0.5) * 2), // ±1pp variação
-      ipca: cenario.parametros.ipca.map(taxa => taxa + (Math.random() - 0.5) * 1.5) // ±0.75pp variação
-    };
-    
-    const valorAtual = calcularValorFuturo(
-      ativoAtual.valorInvestido,
-      ativoAtual.indexador,
-      ativoAtual.taxa,
-      ativoAtual.prazo,
-      premissasVariadas,
-      horizonte,
-      ativoAtual.tipoReinvestimento,
-      {
-        cdi: ativoAtual.taxaReinvestimentoCDI || 100,
-        ipca: ativoAtual.taxaReinvestimentoIPCA || 6,
-        pre: ativoAtual.taxaReinvestimentoPre || 12
-      },
-      ativoAtual.aliquotaIR
-    );
-
-    const valorProposto = calcularValorFuturo(
-      ativoAtual.valorInvestido,
-      ativoProposto.indexador,
-      ativoProposto.taxa,
-      ativoProposto.prazo,
-      premissasVariadas,
-      horizonte,
-      'cdi',
-      { cdi: 100, ipca: 6, pre: 12 },
-      ativoProposto.aliquotaIR
-    );
-
-    const vantagem = valorProposto - valorAtual;
-    const vantagemPercentual = (vantagem / valorAtual) * 100;
-    resultados.push({ vantagem, vantagemPercentual, valorAtual, valorProposto });
-  }
-  
-  // Calcular estatísticas
-  const vantagens = resultados.map(r => r.vantagem);
-  vantagens.sort((a, b) => a - b);
-  
-  const media = vantagens.reduce((sum, val) => sum + val, 0) / numSimulacoes;
-  const desvio = Math.sqrt(vantagens.reduce((sum, val) => sum + Math.pow(val - media, 2), 0) / numSimulacoes);
-  
-  const percentis = {
-    p5: vantagens[Math.floor(numSimulacoes * 0.05)],
-    p25: vantagens[Math.floor(numSimulacoes * 0.25)],
-    p50: vantagens[Math.floor(numSimulacoes * 0.50)],
-    p75: vantagens[Math.floor(numSimulacoes * 0.75)],
-    p95: vantagens[Math.floor(numSimulacoes * 0.95)]
-  };
-  
-  return {
-    resultados,
-    estatisticas: { media, desvio, percentis },
-    probabilidadePositiva: (vantagens.filter(v => v > 0).length / numSimulacoes) * 100
-  };
-};
-
-// Gerar dados de evolução para um cenário específico
-const gerarDadosEvolucaoCenario = (cenario, ativoAtual, ativoProposto, horizonte) => {
-  const dados = [];
-  
-  // Usar parâmetros do cenário como premissas
-  const premissasCenario = {
-    cdi: cenario.parametros.selic,
-    ipca: cenario.parametros.ipca
-  };
-  
-  let valorAtualAcum = ativoAtual.valorInvestido;
-  let valorPropostoAcum = ativoAtual.valorInvestido;
-  
-  for (let ano = 1; ano <= horizonte; ano++) {
-    valorAtualAcum = calcularValorFuturo(
-      ativoAtual.valorInvestido,
-      ativoAtual.indexador,
-      ativoAtual.taxa,
-      ativoAtual.prazo,
-      premissasCenario,
-      ano,
-      ativoAtual.tipoReinvestimento,
-      {
-        cdi: ativoAtual.taxaReinvestimentoCDI || 100,
-        ipca: ativoAtual.taxaReinvestimentoIPCA || 6,
-        pre: ativoAtual.taxaReinvestimentoPre || 12
-      },
-      ativoAtual.aliquotaIR
-    );
-
-    valorPropostoAcum = calcularValorFuturo(
-      ativoAtual.valorInvestido,
-      ativoProposto.indexador,
-      ativoProposto.taxa,
-      ativoProposto.prazo,
-      premissasCenario,
-      ano,
-      'cdi',
-      { cdi: 100, ipca: 6, pre: 12 },
-      ativoProposto.aliquotaIR
-    );
-    
-    dados.push({
-      ano: `Ano ${ano}`,
-      patrimonioMedio: valorPropostoAcum,
-      atual: valorAtualAcum,
-      proposto: valorPropostoAcum,
-      // Simular bandas de confiança (±10% para exemplo)
-      p95: valorPropostoAcum * 1.1,
-      p5: valorPropostoAcum * 0.9
-    });
-  }
-  
-  return dados;
-};
-
-// Gerar histograma para Monte Carlo
-const gerarHistogramaMonteCarlo = (resultadosMC) => {
-  const vantagens = resultadosMC.resultados.map(r => r.vantagem);
-  const min = Math.min(...vantagens);
-  const max = Math.max(...vantagens);
-  const numBins = 20;
-  const binSize = (max - min) / numBins;
-  
-  const histograma = [];
-  
-  for (let i = 0; i < numBins; i++) {
-    const binStart = min + i * binSize;
-    const binEnd = binStart + binSize;
-    const binCenter = (binStart + binEnd) / 2;
-    
-    const frequencia = vantagens.filter(v => v >= binStart && v < binEnd).length;
-    
-    // Calcular densidade normal para sobreposição
-    const media = resultadosMC.estatisticas.media;
-    const desvio = resultadosMC.estatisticas.desvio;
-    const densidadeNormal = (1 / (desvio * Math.sqrt(2 * Math.PI))) * 
-                           Math.exp(-0.5 * Math.pow((binCenter - media) / desvio, 2));
-    
-    histograma.push({
-      bin: binCenter,
-      frequencia,
-      densidadeNormal: densidadeNormal * vantagens.length * binSize // Escalar para visualização
-    });
-  }
-  
-  return histograma;
-};
-
-// Gerar matriz de correlação
-const gerarMatrizCorrelacao = (cenario) => {
-  // Correlações simuladas baseadas no cenário
-  const correlacoes = {
-    base: [
-      [1.00, -0.30, 0.70, -0.40, 0.20],
-      [-0.30, 1.00, -0.60, 0.50, -0.10],
-      [0.70, -0.60, 1.00, -0.30, 0.30],
-      [-0.40, 0.50, -0.30, 1.00, -0.20],
-      [0.20, -0.10, 0.30, -0.20, 1.00]
-    ],
-    recessao: [
-      [1.00, -0.50, 0.80, -0.60, 0.10],
-      [-0.50, 1.00, -0.70, 0.70, -0.20],
-      [0.80, -0.70, 1.00, -0.50, 0.20],
-      [-0.60, 0.70, -0.50, 1.00, -0.30],
-      [0.10, -0.20, 0.20, -0.30, 1.00]
-    ],
-    estagflacao: [
-      [1.00, 0.60, 0.80, 0.40, 0.50],
-      [0.60, 1.00, 0.70, 0.30, 0.40],
-      [0.80, 0.70, 1.00, 0.50, 0.60],
-      [0.40, 0.30, 0.50, 1.00, 0.30],
-      [0.50, 0.40, 0.60, 0.30, 1.00]
-    ]
-  };
-  
-  return correlacoes[cenario.id] || correlacoes.base;
-};
-
-// Gerar VaR dinâmico
-const gerarVarDinamico = (resultadosMC, horizonte) => {
-  const dados = [];
-  
-  for (let h = 1; h <= horizonte; h++) {
-    // Simular VaR para diferentes horizontes
-    const var95 = -5 - (h * 0.5); // VaR piora com horizonte
-    const var99 = -8 - (h * 0.8);
-    const cvar95 = var95 * 1.3; // CVaR é pior que VaR
-    
-    dados.push({
-      horizonte: `${h}Y`,
-      var95,
-      var99,
-      cvar95
-    });
-  }
-  
-  return dados;
-};
-
 function App() {
   // Estados para premissas macroeconômicas
   const [premissas, setPremissas] = useState({
@@ -1120,173 +912,132 @@ function App() {
     setCenarios({ economicos: cenariosEconomicos, curvaJuros: cenariosCurva, dadosCurva: dadosCurvaJuros });
   };
 
-  // Definição dos cenários econômicos do laboratório
+  // Cenários econômicos detalhados para o laboratório
   const cenariosLaboratorio = {
     base: {
-      id: 'base',
-      nome: 'Cenário Base',
+      nome: "Cenário Base",
       probabilidade: 25,
-      descricao: 'Consenso de mercado - Pouso suave da economia',
-      parametros: {
-        pib: [2.5, 2.5, 2.5, 2.5, 2.5],
-        ipca: [4.0, 3.8, 3.6, 3.5, 3.5],
-        selic: [12.5, 11.5, 10.5, 9.5, 9.5],
-        cambio: [5.20, 5.15, 5.10, 5.05, 5.00]
-      },
-      teorias: ['Curva de Phillips', 'Regra de Taylor', 'Expectativas Ancoradas'],
-      fundamentacao: 'Cenário de convergência gradual da inflação para a meta, com crescimento moderado e política monetária previsível seguindo a função de reação do Banco Central.',
+      parametros: { pib: 2.5, ipca: 4.0, selic: 11.5, cambio: 5.2 },
+      teorias: ["Curva de Phillips", "Regra de Taylor", "Expectativas Racionais"],
+      fundamentacao: "Cenário de pouso suave da economia com convergência gradual da inflação para a meta e normalização da política monetária.",
       gatilhos: [
-        'Aprovação de reformas estruturais',
-        'Melhora do cenário externo',
-        'Consolidação fiscal gradual'
+        "Consolidação fiscal em andamento",
+        "Inflação convergindo para meta",
+        "Mercado de trabalho equilibrado",
+        "Política monetária restritiva eficaz"
       ],
       precedentes: [
-        { id: 1, pais: 'Brasil', periodo: '2017-2018', descricao: 'Recuperação pós-recessão com inflação controlada' },
-        { id: 2, pais: 'Chile', periodo: '2010-2012', descricao: 'Normalização pós-crise financeira global' }
+        { id: 1, pais: "Brasil", periodo: "2016-2019", descricao: "Recuperação pós-recessão com inflação controlada" },
+        { id: 2, pais: "Chile", periodo: "2010-2015", descricao: "Estabilização após crise com política monetária ativa" }
       ]
     },
     recessao: {
-      id: 'recessao',
-      nome: 'Recessão Técnica',
+      nome: "Recessão Técnica",
       probabilidade: 15,
-      descricao: 'Dois trimestres consecutivos de contração econômica',
-      parametros: {
-        pib: [-0.5, -0.3, 0.5, 1.0, 1.5],
-        ipca: [3.0, 2.8, 3.2, 3.5, 3.8],
-        selic: [8.5, 7.5, 8.0, 9.0, 9.5],
-        cambio: [5.80, 5.90, 5.70, 5.50, 5.30]
-      },
-      teorias: ['Ciclo de Negócios', 'Multiplicador Fiscal', 'Acelerador de Investimentos'],
-      fundamentacao: 'Contração econômica temporária causada por aperto monetário excessivo ou choque de confiança, com posterior recuperação.',
+      parametros: { pib: -1.0, ipca: 3.5, selic: 9.0, cambio: 5.8 },
+      teorias: ["Ciclos Econômicos", "Armadilha da Liquidez", "Multiplicador Fiscal"],
+      fundamentacao: "Contração econômica temporária devido a choques externos ou aperto monetário excessivo, com resposta de política anticíclica.",
       gatilhos: [
-        'Aperto monetário excessivo',
-        'Choque de confiança empresarial',
-        'Deterioração do cenário externo'
+        "Aperto monetário excessivo",
+        "Choque de confiança empresarial",
+        "Deterioração do cenário externo",
+        "Contração do crédito"
       ],
       precedentes: [
-        { id: 1, pais: 'Brasil', periodo: '2014-2016', descricao: 'Recessão com ajuste fiscal e monetário' },
-        { id: 2, pais: 'EUA', periodo: '2001', descricao: 'Recessão técnica pós-bolha tecnológica' }
+        { id: 1, pais: "Brasil", periodo: "2014-2016", descricao: "Recessão com alta inflação e crise política" },
+        { id: 2, pais: "EUA", periodo: "2001", descricao: "Recessão técnica pós-bolha tecnológica" }
       ]
     },
     estagflacao: {
-      id: 'estagflacao',
-      nome: 'Estagflação',
+      nome: "Estagflação",
       probabilidade: 10,
-      descricao: 'Alta inflação combinada com baixo crescimento',
-      parametros: {
-        pib: [0.5, 0.3, 0.8, 1.0, 1.2],
-        ipca: [7.5, 7.8, 7.2, 6.8, 6.5],
-        selic: [15.0, 16.0, 15.5, 14.5, 13.5],
-        cambio: [6.50, 6.80, 6.60, 6.40, 6.20]
-      },
-      teorias: ['Curva de Phillips', 'Espiral Preço-Salário', 'Choque de Oferta'],
-      fundamentacao: 'Deslocamento desfavorável da curva de Phillips causado por choques de oferta persistentes e desancoragem de expectativas.',
+      parametros: { pib: 0.5, ipca: 7.0, selic: 14.0, cambio: 6.5 },
+      teorias: ["Curva de Phillips", "Choque de Oferta", "Indexação de Preços"],
+      fundamentacao: "Combinação de baixo crescimento com alta inflação, típica de choques de oferta ou desancoragem de expectativas.",
       gatilhos: [
-        'Choque de commodities (energia/alimentos)',
-        'Desancoragem de expectativas',
-        'Política fiscal expansiva'
+        "Choque de commodities",
+        "Desancoragem de expectativas",
+        "Pressões de custos generalizadas",
+        "Política fiscal expansionista"
       ],
       precedentes: [
-        { id: 1, pais: 'Brasil', periodo: '1980-1994', descricao: 'Período hiperinflacionário com baixo crescimento' },
-        { id: 2, pais: 'EUA', periodo: '1970-1982', descricao: 'Estagflação pós-choques do petróleo' }
+        { id: 1, pais: "Brasil", periodo: "1970-1980", descricao: "Choques do petróleo com indexação generalizada" },
+        { id: 2, pais: "EUA", periodo: "1970s", descricao: "Estagflação pós-choques do petróleo" }
       ]
     },
     boom: {
-      id: 'boom',
-      nome: 'Boom de Commodities',
+      nome: "Boom de Commodities",
       probabilidade: 12,
-      descricao: 'Superciclo de matérias-primas',
-      parametros: {
-        pib: [4.0, 4.2, 3.8, 3.5, 3.2],
-        ipca: [5.5, 6.0, 5.8, 5.2, 4.8],
-        selic: [13.5, 14.5, 14.0, 13.0, 12.0],
-        cambio: [4.50, 4.30, 4.40, 4.60, 4.80]
-      },
-      teorias: ['Termos de Troca', 'Doença Holandesa', 'Ciclo de Investimentos'],
-      fundamentacao: 'Melhora substancial dos termos de troca impulsiona crescimento, mas gera pressões inflacionárias e apreciação cambial.',
+      parametros: { pib: 4.0, ipca: 5.5, selic: 13.0, cambio: 4.8 },
+      teorias: ["Doença Holandesa", "Superciclo de Commodities", "Termos de Troca"],
+      fundamentacao: "Ciclo expansivo impulsionado por alta dos preços de commodities, com pressões inflacionárias e apreciação cambial.",
       gatilhos: [
-        'Crescimento chinês acelerado',
-        'Transição energética global',
-        'Escassez de oferta global'
+        "Alta global de commodities",
+        "Demanda chinesa aquecida",
+        "Restrições de oferta global",
+        "Especulação financeira"
       ],
       precedentes: [
-        { id: 1, pais: 'Brasil', periodo: '2004-2008', descricao: 'Boom de commodities pré-crise financeira' },
-        { id: 2, pais: 'Austrália', periodo: '2003-2012', descricao: 'Superciclo minerário chinês' }
+        { id: 1, pais: "Brasil", periodo: "2003-2008", descricao: "Boom das commodities com crescimento acelerado" },
+        { id: 2, pais: "Austrália", periodo: "2005-2012", descricao: "Superciclo minerário com apreciação cambial" }
       ]
     },
     crise_fiscal: {
-      id: 'crise_fiscal',
-      nome: 'Crise Fiscal',
+      nome: "Crise Fiscal",
       probabilidade: 8,
-      descricao: 'Deterioração das contas públicas',
-      parametros: {
-        pib: [1.0, 0.5, 1.2, 1.8, 2.0],
-        ipca: [6.0, 6.5, 6.2, 5.8, 5.5],
-        selic: [16.0, 17.0, 16.5, 15.5, 14.5],
-        cambio: [7.00, 7.50, 7.20, 6.80, 6.50]
-      },
-      teorias: ['Dominância Fiscal', 'Equivalência Ricardiana', 'Sustentabilidade da Dívida'],
-      fundamentacao: 'Perda de credibilidade fiscal torna a política monetária ineficaz, gerando prêmios de risco elevados.',
+      parametros: { pib: -0.5, ipca: 6.0, selic: 15.0, cambio: 7.0 },
+      teorias: ["Dominância Fiscal", "Equivalência Ricardiana", "Sustentabilidade da Dívida"],
+      fundamentacao: "Deterioração das contas públicas gerando desconfiança sobre sustentabilidade fiscal e pressões sobre juros e câmbio.",
       gatilhos: [
-        'Estouro do teto de gastos',
-        'Perda de grau de investimento',
-        'Crise política institucional'
+        "Deterioração do resultado primário",
+        "Alta da dívida/PIB",
+        "Perda de credibilidade fiscal",
+        "Pressão dos mercados"
       ],
       precedentes: [
-        { id: 1, pais: 'Brasil', periodo: '2015-2016', descricao: 'Crise fiscal com recessão profunda' },
-        { id: 2, pais: 'Argentina', periodo: '2018-2019', descricao: 'Crise de confiança fiscal' }
+        { id: 1, pais: "Brasil", periodo: "2014-2016", descricao: "Crise fiscal com recessão e alta inflação" },
+        { id: 2, pais: "Argentina", periodo: "2018-2019", descricao: "Crise de confiança com fuga de capitais" }
       ]
     },
     choque_externo: {
-      id: 'choque_externo',
-      nome: 'Choque Externo',
+      nome: "Choque Externo",
       probabilidade: 10,
-      descricao: 'Guerra comercial ou crise geopolítica',
-      parametros: {
-        pib: [1.5, 1.0, 1.8, 2.2, 2.5],
-        ipca: [5.0, 5.5, 5.2, 4.8, 4.5],
-        selic: [14.0, 15.0, 14.5, 13.5, 12.5],
-        cambio: [6.20, 6.50, 6.30, 6.00, 5.80]
-      },
-      teorias: ['Transmissão Internacional', 'Flight to Quality', 'Risk-off Global'],
-      fundamentacao: 'Contágio internacional via canais comerciais e financeiros, com fuga para ativos seguros.',
+      parametros: { pib: 1.0, ipca: 5.0, selic: 12.5, cambio: 6.2 },
+      teorias: ["Paridade do Poder de Compra", "Mobilidade de Capitais", "Contágio Financeiro"],
+      fundamentacao: "Turbulência externa afetando fluxos de capital e preços de ativos, com transmissão via câmbio e confiança.",
       gatilhos: [
-        'Escalada de tensões geopolíticas',
-        'Guerra comercial EUA-China',
-        'Crise em economia desenvolvida'
+        "Guerra comercial global",
+        "Crise geopolítica",
+        "Mudança na política do Fed",
+        "Contágio de mercados emergentes"
       ],
       precedentes: [
-        { id: 1, pais: 'Emergentes', periodo: '2008-2009', descricao: 'Crise financeira global' },
-        { id: 2, pais: 'Emergentes', periodo: '2018-2019', descricao: 'Guerra comercial EUA-China' }
+        { id: 1, pais: "Brasil", periodo: "2008", descricao: "Crise financeira global com contágio via câmbio" },
+        { id: 2, pais: "Turquia", periodo: "2018", descricao: "Crise cambial por tensões geopolíticas" }
       ]
     }
   };
 
   // Função para executar simulação do laboratório
   const executarSimulacao = async () => {
+    if (!resultados) {
+      alert('Execute primeiro uma análise comparativa!');
+      return;
+    }
+    
     setSimulandoAtivo(true);
     
+    // Simular delay para mostrar loading
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
     try {
-      const cenario = cenariosLaboratorio[cenarioSelecionado];
-      
-      // Simular Monte Carlo específico para o cenário
-      const resultadosMC = simularMonteCarloEspecifico(cenario, ativoAtual, ativoProposto, numSimulacoes, horizonte);
-      
-      // Gerar dados para gráficos
-      const dadosEvolucao = gerarDadosEvolucaoCenario(cenario, ativoAtual, ativoProposto, horizonte);
-      const dadosDistribuicao = gerarHistogramaMonteCarlo(resultadosMC);
-      const dadosCorrelacao = gerarMatrizCorrelacao(cenario);
-      const dadosVaR = gerarVarDinamico(resultadosMC, horizonte);
+      const cenarioInfo = cenariosLaboratorio[cenarioSelecionado];
       
       setDadosLaboratorio({
-        cenario,
-        monteCarlo: resultadosMC,
-        evolucao: dadosEvolucao,
-        distribuicao: dadosDistribuicao,
-        correlacao: dadosCorrelacao,
-        var: dadosVaR
+        cenario: cenarioInfo,
+        simulacaoExecutada: true,
+        timestamp: new Date().toLocaleString()
       });
-      
     } catch (error) {
       console.error('Erro na simulação:', error);
       alert('Erro ao executar simulação. Tente novamente.');
@@ -1534,7 +1285,7 @@ function App() {
             </div>
 
             {resultados && (
-            <div>
+            <>
               {/* Abas */}
               <div className="tabs" style={{ marginTop: '1rem' }}>
                 <button 
@@ -1651,7 +1402,7 @@ function App() {
                               <Legend />
                               <Line 
                                 type="monotone" 
-                                dataKey="atual" 
+                                dataKey="estrategiaAtual" 
                                 stroke="#64748b" 
                                 strokeWidth={3}
                                 name="Estratégia Atual"
@@ -1660,7 +1411,7 @@ function App() {
                               />
                               <Line 
                                 type="monotone" 
-                                dataKey="proposto" 
+                                dataKey="estrategiaProposta" 
                                 stroke="#1e293b" 
                                 strokeWidth={3}
                                 name="Estratégia Proposta"
@@ -1717,7 +1468,7 @@ function App() {
                               <Legend />
                               <Line 
                                 type="monotone" 
-                                dataKey="atual" 
+                                dataKey="rentabilidadeAtual" 
                                 stroke="#64748b" 
                                 strokeWidth={3}
                                 name="Rentabilidade Atual"
@@ -1726,7 +1477,7 @@ function App() {
                               />
                               <Line 
                                 type="monotone" 
-                                dataKey="proposto" 
+                                dataKey="rentabilidadeProposta" 
                                 stroke="#1e293b" 
                                 strokeWidth={3}
                                 name="Rentabilidade Proposta"
@@ -1869,7 +1620,6 @@ function App() {
                       </p>
                     </div>
 
-                    {/* Painel de Controle */}
                     <div className="lab-control-panel">
                       <div className="control-grid">
                         <div className="control-item">
@@ -1921,322 +1671,74 @@ function App() {
                       </button>
                     </div>
 
-                    {/* Gráficos Dinâmicos */}
-                    {dadosLaboratorio && (
-                      <div className="charts-grid-lab">
-                        {/* Gráfico 1: Evolução do Patrimônio */}
-                        <div className="chart-container">
-                          <div className="chart-header">
-                            <h4>Evolução do Patrimônio - {dadosLaboratorio.cenario.nome}</h4>
-                            <button 
-                              className="copy-chart-btn"
-                              onClick={() => copiarGrafico('evolucao-cenario')}
-                              title="Copiar gráfico"
-                            >
-                              📋
-                            </button>
-                          </div>
-                          <div id="chart-evolucao-cenario">
-                            <ResponsiveContainer width="100%" height={300}>
-                              <ComposedChart data={dadosLaboratorio.evolucao}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                                <XAxis 
-                                  dataKey="ano" 
-                                  tick={{ fontSize: 12 }}
-                                  axisLine={{ stroke: '#64748b' }}
-                                />
-                                <YAxis 
-                                  tick={{ fontSize: 12 }}
-                                  axisLine={{ stroke: '#64748b' }}
-                                  tickFormatter={formatarValorMilhoes}
-                                />
-                                <Tooltip 
-                                  formatter={(value, name) => [formatarValor(value), name]}
-                                  labelFormatter={(label) => label}
-                                  contentStyle={{
-                                    backgroundColor: '#f8fafc',
-                                    border: '1px solid #e2e8f0',
-                                    borderRadius: '6px'
-                                  }}
-                                />
-                                <Legend />
-                                
-                                {/* Banda de confiança */}
-                                <Area 
-                                  dataKey="p95" 
-                                  fill="#1e293b" 
-                                  fillOpacity={0.1}
-                                  stroke="none"
-                                  name="Intervalo 90%"
-                                />
-                                <Area 
-                                  dataKey="p5" 
-                                  fill="#ffffff" 
-                                  fillOpacity={1}
-                                  stroke="none"
-                                />
-                                
-                                {/* Linhas principais */}
-                                <Line 
-                                  type="monotone" 
-                                  dataKey="atual" 
-                                  stroke="#64748b" 
-                                  strokeWidth={2}
-                                  name="Estratégia Atual"
-                                  dot={{ fill: '#64748b', strokeWidth: 2, r: 3 }}
-                                />
-                                <Line 
-                                  type="monotone" 
-                                  dataKey="proposto" 
-                                  stroke="#1e293b" 
-                                  strokeWidth={3}
-                                  name="Estratégia Proposta"
-                                  dot={{ fill: '#1e293b', strokeWidth: 2, r: 4 }}
-                                />
-                              </ComposedChart>
-                            </ResponsiveContainer>
-                          </div>
-                        </div>
-
-                        {/* Gráfico 2: Distribuição Monte Carlo */}
-                        <div className="chart-container">
-                          <div className="chart-header">
-                            <h4>Distribuição de Resultados - Monte Carlo</h4>
-                            <button 
-                              className="copy-chart-btn"
-                              onClick={() => copiarGrafico('distribuicao-mc')}
-                              title="Copiar gráfico"
-                            >
-                              📋
-                            </button>
-                          </div>
-                          <div id="chart-distribuicao-mc">
-                            <ResponsiveContainer width="100%" height={300}>
-                              <ComposedChart data={dadosLaboratorio.distribuicao}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                                <XAxis 
-                                  dataKey="bin" 
-                                  tick={{ fontSize: 12 }}
-                                  tickFormatter={formatarValorMilhoes}
-                                />
-                                <YAxis yAxisId="left" tick={{ fontSize: 12 }} />
-                                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} />
-                                <Tooltip 
-                                  formatter={(value, name) => [
-                                    name === 'Frequência' ? value : value.toFixed(4), 
-                                    name
-                                  ]}
-                                  labelFormatter={(label) => `Resultado: ${formatarValor(label)}`}
-                                  contentStyle={{
-                                    backgroundColor: '#f8fafc',
-                                    border: '1px solid #e2e8f0',
-                                    borderRadius: '6px'
-                                  }}
-                                />
-                                <Legend />
-                                
-                                {/* Histograma */}
-                                <Bar 
-                                  yAxisId="left"
-                                  dataKey="frequencia" 
-                                  fill="#64748b" 
-                                  fillOpacity={0.6}
-                                  name="Frequência"
-                                />
-                                
-                                {/* Curva normal */}
-                                <Line 
-                                  yAxisId="right"
-                                  type="monotone" 
-                                  dataKey="densidadeNormal" 
-                                  stroke="#dc2626" 
-                                  strokeWidth={2}
-                                  name="Distribuição Normal"
-                                  dot={false}
-                                />
-                              </ComposedChart>
-                            </ResponsiveContainer>
-                          </div>
-                        </div>
-
-                        {/* Gráfico 3: Correlações Macroeconômicas */}
-                        <div className="chart-container">
-                          <div className="chart-header">
-                            <h4>Correlações Dinâmicas - Variáveis Macro</h4>
-                            <button 
-                              className="copy-chart-btn"
-                              onClick={() => copiarGrafico('correlacoes')}
-                              title="Copiar gráfico"
-                            >
-                              📋
-                            </button>
-                          </div>
-                          <div id="chart-correlacoes">
-                            <div className="correlation-heatmap">
-                              {dadosLaboratorio.correlacao.map((linha, i) => (
-                                <div key={i} className="correlation-row">
-                                  {linha.map((valor, j) => (
-                                    <div 
-                                      key={j} 
-                                      className="correlation-cell"
-                                      style={{
-                                        backgroundColor: `rgba(${valor > 0 ? '34, 197, 94' : '239, 68, 68'}, ${Math.abs(valor)})`,
-                                        color: Math.abs(valor) > 0.5 ? 'white' : 'black'
-                                      }}
-                                    >
-                                      {valor.toFixed(2)}
-                                    </div>
-                                  ))}
-                                </div>
-                              ))}
+                    {dadosLaboratorio ? (
+                      <div className="lab-results">
+                        <div className="scenario-analysis">
+                          <h4>📊 Análise do Cenário: {dadosLaboratorio.cenario.nome}</h4>
+                          
+                          <div className="scenario-details">
+                            <div className="scenario-card">
+                              <h5>📚 Fundamentação Teórica</h5>
+                              <div className="theory-tags">
+                                {dadosLaboratorio.cenario.teorias.map((teoria, index) => (
+                                  <span key={index} className="theory-tag">{teoria}</span>
+                                ))}
+                              </div>
+                              <p>{dadosLaboratorio.cenario.fundamentacao}</p>
                             </div>
-                            <div className="correlation-labels">
-                              <div className="labels-grid">
-                                {['PIB', 'IPCA', 'Selic', 'Câmbio', 'Commodities'].map((label, i) => (
-                                  <span key={i} className="correlation-label">{label}</span>
+
+                            <div className="scenario-card">
+                              <h5>⚡ Gatilhos Econômicos</h5>
+                              <ul className="triggers-list">
+                                {dadosLaboratorio.cenario.gatilhos.map((gatilho, index) => (
+                                  <li key={index}>{gatilho}</li>
+                                ))}
+                              </ul>
+                            </div>
+
+                            <div className="scenario-card">
+                              <h5>📈 Parâmetros Macroeconômicos</h5>
+                              <div className="params-grid">
+                                <div className="param-item">
+                                  <span className="param-label">PIB:</span>
+                                  <span className="param-value">{dadosLaboratorio.cenario.parametros.pib}%</span>
+                                </div>
+                                <div className="param-item">
+                                  <span className="param-label">IPCA:</span>
+                                  <span className="param-value">{dadosLaboratorio.cenario.parametros.ipca}%</span>
+                                </div>
+                                <div className="param-item">
+                                  <span className="param-label">Selic:</span>
+                                  <span className="param-value">{dadosLaboratorio.cenario.parametros.selic}%</span>
+                                </div>
+                                <div className="param-item">
+                                  <span className="param-label">Câmbio:</span>
+                                  <span className="param-value">R$ {dadosLaboratorio.cenario.parametros.cambio}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="scenario-card">
+                              <h5>🏛️ Precedentes Históricos</h5>
+                              <div className="precedents-list">
+                                {dadosLaboratorio.cenario.precedentes.map((precedente) => (
+                                  <div key={precedente.id} className="precedent-item">
+                                    <strong>{precedente.pais} ({precedente.periodo}):</strong>
+                                    <span>{precedente.descricao}</span>
+                                  </div>
                                 ))}
                               </div>
                             </div>
                           </div>
-                        </div>
 
-                        {/* Gráfico 4: VaR Dinâmico */}
-                        <div className="chart-container">
-                          <div className="chart-header">
-                            <h4>Value at Risk Dinâmico</h4>
-                            <button 
-                              className="copy-chart-btn"
-                              onClick={() => copiarGrafico('var-dinamico')}
-                              title="Copiar gráfico"
-                            >
-                              📋
-                            </button>
-                          </div>
-                          <div id="chart-var-dinamico">
-                            <ResponsiveContainer width="100%" height={300}>
-                              <LineChart data={dadosLaboratorio.var}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                                <XAxis 
-                                  dataKey="horizonte" 
-                                  tick={{ fontSize: 12 }}
-                                />
-                                <YAxis 
-                                  tick={{ fontSize: 12 }}
-                                  tickFormatter={formatarPercentual}
-                                />
-                                <Tooltip 
-                                  formatter={(value) => [`${value.toFixed(2)}%`, 'VaR']}
-                                  contentStyle={{
-                                    backgroundColor: '#f8fafc',
-                                    border: '1px solid #e2e8f0',
-                                    borderRadius: '6px'
-                                  }}
-                                />
-                                <Legend />
-                                
-                                <Line 
-                                  dataKey="var95" 
-                                  stroke="#ef4444" 
-                                  strokeWidth={2}
-                                  name="VaR 95%"
-                                  strokeDasharray="5 5"
-                                  dot={{ fill: '#ef4444', strokeWidth: 2, r: 3 }}
-                                />
-                                <Line 
-                                  dataKey="var99" 
-                                  stroke="#dc2626" 
-                                  strokeWidth={2}
-                                  name="VaR 99%"
-                                  strokeDasharray="3 3"
-                                  dot={{ fill: '#dc2626', strokeWidth: 2, r: 3 }}
-                                />
-                                <Line 
-                                  dataKey="cvar95" 
-                                  stroke="#f59e0b" 
-                                  strokeWidth={2}
-                                  name="CVaR 95%"
-                                  dot={{ fill: '#f59e0b', strokeWidth: 2, r: 3 }}
-                                />
-                              </LineChart>
-                            </ResponsiveContainer>
+                          <div className="simulation-info">
+                            <p><strong>Simulação executada:</strong> {dadosLaboratorio.timestamp}</p>
+                            <p><strong>Número de simulações:</strong> {numSimulacoes.toLocaleString()}</p>
+                            <p><strong>Probabilidade do cenário:</strong> {dadosLaboratorio.cenario.probabilidade}%</p>
                           </div>
                         </div>
                       </div>
-                    )}
-
-                    {/* Análise Econômica Detalhada */}
-                    {dadosLaboratorio && (
-                      <div className="economic-analysis">
-                        <div className="analysis-header">
-                          <h3>🎯 {dadosLaboratorio.cenario.nome}</h3>
-                          <div className="scenario-probability">
-                            Probabilidade: {dadosLaboratorio.cenario.probabilidade}%
-                          </div>
-                        </div>
-                        
-                        <div className="analysis-grid">
-                          <div className="analysis-section">
-                            <h4>📚 Fundamentação Teórica</h4>
-                            <div className="theory-tags">
-                              {dadosLaboratorio.cenario.teorias.map(teoria => (
-                                <span key={teoria} className="theory-tag">{teoria}</span>
-                              ))}
-                            </div>
-                            <p>{dadosLaboratorio.cenario.fundamentacao}</p>
-                          </div>
-                          
-                          <div className="analysis-section">
-                            <h4>⚡ Gatilhos Econômicos</h4>
-                            <ul className="triggers-list">
-                              {dadosLaboratorio.cenario.gatilhos.map((gatilho, index) => (
-                                <li key={index}>{gatilho}</li>
-                              ))}
-                            </ul>
-                          </div>
-                          
-                          <div className="analysis-section">
-                            <h4>📊 Métricas Estatísticas</h4>
-                            <div className="metrics-grid">
-                              <div className="metric-item">
-                                <span className="metric-label">VaR 95%:</span>
-                                <span className="metric-value">
-                                  {formatarValor(dadosLaboratorio.monteCarlo.estatisticas.percentis.p5)}
-                                </span>
-                              </div>
-                              <div className="metric-item">
-                                <span className="metric-label">Mediana:</span>
-                                <span className="metric-value">
-                                  {formatarValor(dadosLaboratorio.monteCarlo.estatisticas.percentis.p50)}
-                                </span>
-                              </div>
-                              <div className="metric-item">
-                                <span className="metric-label">Prob. Positiva:</span>
-                                <span className="metric-value">
-                                  {dadosLaboratorio.monteCarlo.probabilidadePositiva.toFixed(1)}%
-                                </span>
-                              </div>
-                              <div className="metric-item">
-                                <span className="metric-label">Desvio Padrão:</span>
-                                <span className="metric-value">
-                                  {formatarValor(dadosLaboratorio.monteCarlo.estatisticas.desvio)}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="analysis-section">
-                            <h4>📈 Precedentes Históricos</h4>
-                            <div className="precedents-list">
-                              {dadosLaboratorio.cenario.precedentes.map(precedente => (
-                                <div key={precedente.id} className="precedent-item">
-                                  <strong>{precedente.pais} ({precedente.periodo})</strong>
-                                  <p>{precedente.descricao}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                    {/* Mensagem inicial */}
-                    {!dadosLaboratorio && (
+                    ) : (
                       <div className="lab-placeholder">
                         <div className="placeholder-content">
                           <h4>🚀 Pronto para Simular</h4>
@@ -2255,7 +1757,7 @@ function App() {
                     )}
                   </div>
                 )}
-                {abaAtiva === 'relatorio' && (
+
                   <div className="relatorio-content">
                     <div className="relatorio-header">
                       <h3>Relatório Técnico de Análise Comparativa</h3>
@@ -2297,12 +1799,12 @@ function App() {
                         </p>
                       )}
 
-                      {cenarios && cenarios.economicos && (
+                      {cenarios && (
                         <p>
-                          <strong>Análise de Cenários:</strong> Dos {cenarios.economicos.length} cenários econômicos testados, 
-                          {cenarios.economicos.filter(c => c.resultadoFavoravel).length} apresentam resultados favoráveis à migração. 
+                          <strong>Análise de Cenários:</strong> Dos {cenarios.length} cenários econômicos testados, 
+                          {cenarios.filter(c => c.resultadoFavoravel).length} apresentam resultados favoráveis à migração. 
                           A probabilidade ponderada de resultado superior, considerando as probabilidades históricas de cada cenário, 
-                          é de {formatarPercentual(cenarios.economicos.reduce((acc, c) => acc + (c.resultadoFavoravel ? c.probabilidade : 0), 0))}.
+                          é de {formatarPercentual(cenarios.reduce((acc, c) => acc + (c.resultadoFavoravel ? c.probabilidade : 0), 0))}.
                         </p>
                       )}
 
@@ -2317,9 +1819,9 @@ function App() {
 
                       <p>
                         <strong>Recomendação Técnica:</strong> {
-                        resultados.vantagem > 0 && monteCarlo && monteCarlo.probabilidadeResultadoPositivo > 70 ?
+                          resultados.vantagem > 0 && monteCarlo?.probabilidadeResultadoPositivo > 70 ?
                             'MIGRAR - A estratégia proposta apresenta resultado superior consistente com risco controlado.' :
-                            resultados.vantagem > 0 && monteCarlo && monteCarlo.probabilidadeResultadoPositivo > 50 ?
+                            resultados.vantagem > 0 && monteCarlo?.probabilidadeResultadoPositivo > 50 ?
                             'CONSIDERAR - A estratégia proposta oferece resultado superior, mas requer avaliação do perfil de risco.' :
                             'MANTER - A estratégia atual demonstra maior adequação ao cenário analisado.'
                         } A decisão final deve considerar o perfil de risco do investidor e objetivos específicos da carteira.
@@ -2328,7 +1830,7 @@ function App() {
                   </div>
                 )}
               </div>
-              </div>
+            </>
           )}
         </div>
       </div>
