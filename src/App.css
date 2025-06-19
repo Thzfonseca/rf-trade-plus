@@ -711,3 +711,132 @@ body {
   font-weight: 400;
 }
 
+/* Sensibilidade Styles */
+.sensibilidade-explanation {
+  margin-top: 2rem;
+}
+
+.explanation-section {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.explanation-section h4 {
+  color: #1e293b;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.explanation-section h5 {
+  color: #334155;
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.interpretation-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.interpretation-item {
+  background: #f8fafc;
+  padding: 1rem;
+  border-radius: 8px;
+  border-left: 4px solid #3b82f6;
+}
+
+.interpretation-item:nth-child(2) {
+  border-left-color: #10b981;
+}
+
+.scenarios-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.scenario-card {
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  padding: 1.2rem;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+}
+
+.scenario-card h5 {
+  color: #1e293b;
+  margin-bottom: 0.8rem;
+  font-size: 0.95rem;
+}
+
+.scenario-card p {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #475569;
+}
+
+.practical-analysis {
+  background: #f8fafc;
+  padding: 1.2rem;
+  border-radius: 8px;
+  margin-top: 1rem;
+}
+
+.checklist {
+  margin-top: 1rem;
+}
+
+.checklist-item {
+  background: white;
+  padding: 0.8rem;
+  margin-bottom: 0.5rem;
+  border-radius: 6px;
+  border-left: 3px solid #3b82f6;
+  font-size: 0.9rem;
+}
+
+.breakeven-analysis {
+  background: #fef3c7;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-top: 1rem;
+  border: 1px solid #fbbf24;
+}
+
+.risk-tips {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.tip-item {
+  background: white;
+  padding: 1rem;
+  border-radius: 8px;
+  border-left: 4px solid #10b981;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+  .interpretation-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .scenarios-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .explanation-section {
+    padding: 1rem;
+  }
+}
+
