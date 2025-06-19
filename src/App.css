@@ -1354,3 +1354,35 @@ body {
   margin-bottom: 1.5rem; /* Reduzido de 2rem */
 }
 
+
+/* Otimizações de Layout */
+.charts-grid-simple {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.copy-chart-btn {
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  color: white;
+  border: none;
+  padding: 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.2s ease;
+}
+
+.copy-chart-btn:hover {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  transform: scale(1.05);
+}
+
