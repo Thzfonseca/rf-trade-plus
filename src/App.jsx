@@ -1799,12 +1799,12 @@ function App() {
                         </p>
                       )}
 
-                      {cenarios && (
+                      {cenarios && cenarios.economicos && (
                         <p>
-                          <strong>Análise de Cenários:</strong> Dos {cenarios.length} cenários econômicos testados, 
-                          {cenarios.filter(c => c.resultadoFavoravel).length} apresentam resultados favoráveis à migração. 
+                          <strong>Análise de Cenários:</strong> Dos {cenarios.economicos.length} cenários econômicos testados, 
+                          {cenarios.economicos.filter(c => c.resultadoFavoravel).length} apresentam resultados favoráveis à migração. 
                           A probabilidade ponderada de resultado superior, considerando as probabilidades históricas de cada cenário, 
-                          é de {formatarPercentual(cenarios.reduce((acc, c) => acc + (c.resultadoFavoravel ? c.probabilidade : 0), 0))}.
+                          é de {formatarPercentual(cenarios.economicos.reduce((acc, c) => acc + (c.resultadoFavoravel ? c.probabilidade : 0), 0))}.
                         </p>
                       )}
 
