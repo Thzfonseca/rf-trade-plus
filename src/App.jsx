@@ -42,11 +42,10 @@ const calcularValorFuturo = (valorInicial, indexador, taxa, prazo, premissas, ho
   return valor;
 };
 
-// Função para simular Monte Carlo AVANÇADA
+// Função para simular Monte Carlo PROFISSIONAL
 const simularMonteCarloAvancado = (ativoAtual, ativoProposto, premissas, horizonte) => {
   const simulacoes = 10000;
   const resultados = [];
-  const trajetorias = [];
   
   for (let i = 0; i < simulacoes; i++) {
     // Gerar variações aleatórias nas premissas
@@ -86,11 +85,6 @@ const simularMonteCarloAvancado = (ativoAtual, ativoProposto, premissas, horizon
     const vantagem = valorProposto - valorAtual;
     const vantagemPercentual = (vantagem / valorAtual) * 100;
     resultados.push({ vantagem, vantagemPercentual, valorAtual, valorProposto });
-    
-    // Guardar algumas trajetórias para visualização
-    if (i < 100) {
-      trajetorias.push({ valorAtual, valorProposto, vantagem });
-    }
   }
   
   // Calcular estatísticas avançadas
@@ -114,29 +108,33 @@ const simularMonteCarloAvancado = (ativoAtual, ativoProposto, premissas, horizon
     p95: vantagens[Math.floor(simulacoes * 0.95)]
   };
   
-  // Análise de risco
-  const probabilidadeSucesso = (vantagens.filter(v => v > 0).length / simulacoes) * 100;
-  const probabilidadePerda = (vantagens.filter(v => v < -50000).length / simulacoes) * 100;
-  const probabilidadeGanhoAlto = (vantagens.filter(v => v > 100000).length / simulacoes) * 100;
+  // Análise de probabilidades
+  const probabilidadeResultadoPositivo = (vantagens.filter(v => v > 0).length / simulacoes) * 100;
+  const probabilidadeResultadoNegativo = (vantagens.filter(v => v < 0).length / simulacoes) * 100;
+  const probabilidadeResultadoSignificativo = (vantagens.filter(v => Math.abs(v) > 50000).length / simulacoes) * 100;
   
   // Distribuição por faixas
   const faixas = [
-    { nome: 'Perda > R$ 100k', min: -Infinity, max: -100000, cor: '#dc2626' },
-    { nome: 'Perda R$ 50k-100k', min: -100000, max: -50000, cor: '#ef4444' },
-    { nome: 'Perda < R$ 50k', min: -50000, max: 0, cor: '#f87171' },
-    { nome: 'Ganho < R$ 50k', min: 0, max: 50000, cor: '#84cc16' },
-    { nome: 'Ganho R$ 50k-100k', min: 50000, max: 100000, cor: '#22c55e' },
-    { nome: 'Ganho > R$ 100k', min: 100000, max: Infinity, cor: '#16a34a' }
+    { nome: 'Resultado muito negativo', min: -Infinity, max: -100000, count: 0 },
+    { nome: 'Resultado negativo', min: -100000, max: -25000, count: 0 },
+    { nome: 'Resultado neutro negativo', min: -25000, max: 0, count: 0 },
+    { nome: 'Resultado neutro positivo', min: 0, max: 25000, count: 0 },
+    { nome: 'Resultado positivo', min: 25000, max: 100000, count: 0 },
+    { nome: 'Resultado muito positivo', min: 100000, max: Infinity, count: 0 }
   ];
   
-  const distribuicaoFaixas = faixas.map(faixa => {
-    const count = vantagens.filter(v => v >= faixa.min && v < faixa.max).length;
-    return {
-      ...faixa,
-      count,
-      percentual: (count / simulacoes) * 100
-    };
+  vantagens.forEach(v => {
+    faixas.forEach(faixa => {
+      if (v >= faixa.min && v < faixa.max) {
+        faixa.count++;
+      }
+    });
   });
+  
+  const distribuicaoFaixas = faixas.map(faixa => ({
+    ...faixa,
+    percentual: (faixa.count / simulacoes) * 100
+  }));
   
   // Gerar histograma
   const bins = 50;
@@ -153,29 +151,20 @@ const simularMonteCarloAvancado = (ativoAtual, ativoProposto, premissas, horizon
     histograma.push({
       bin: binStart + binSize / 2,
       frequencia: count,
-      favoravel: binStart + binSize / 2 > 0
+      categoria: binStart + binSize / 2 > 0 ? 'positivo' : 'negativo'
     });
   }
-  
-  // Métricas de risco
-  const sharpeRatio = media / desvio;
-  const sortinoRatio = media / Math.sqrt(vantagens.filter(v => v < 0).reduce((sum, val) => sum + Math.pow(val, 2), 0) / vantagens.filter(v => v < 0).length || 1);
-  const maxDrawdown = Math.min(...vantagens);
   
   return {
     media,
     mediana,
     desvio,
     percentis,
-    probabilidadeSucesso,
-    probabilidadePerda,
-    probabilidadeGanhoAlto,
+    probabilidadeResultadoPositivo,
+    probabilidadeResultadoNegativo,
+    probabilidadeResultadoSignificativo,
     distribuicaoFaixas,
     histograma,
-    trajetorias,
-    sharpeRatio,
-    sortinoRatio,
-    maxDrawdown,
     resultados: vantagens
   };
 };
@@ -294,12 +283,11 @@ const calcularBreakeven = (ativoAtual, ativoProposto, premissas, horizonte) => {
   return taxaBreakeven;
 };
 
-// Função para gerar análise de cenários INTUITIVA
-const gerarCenariosIntuitivos = (ativoAtual, ativoProposto, premissas, horizonte) => {
+// Função para gerar cenários econômicos
+const gerarCenariosEconomicos = (ativoAtual, ativoProposto, premissas, horizonte) => {
   const cdiBase = premissas.cdi[0];
   const ipcaBase = premissas.ipca[0];
   
-  // Cenários mais intuitivos e visuais
   const cenarios = [
     { 
       nome: "Conservador", 
@@ -307,35 +295,31 @@ const gerarCenariosIntuitivos = (ativoAtual, ativoProposto, premissas, horizonte
       cdi: cdiBase - 1, 
       ipca: ipcaBase - 0.5, 
       descricao: "Economia estável, juros em queda",
-      probabilidade: 30,
-      cor: "#22c55e"
+      probabilidade: 30
     },
     { 
-      nome: "Atual", 
+      nome: "Base", 
       emoji: "📊",
       cdi: cdiBase, 
       ipca: ipcaBase, 
       descricao: "Suas premissas atuais",
-      probabilidade: 40,
-      cor: "#3b82f6"
+      probabilidade: 40
     },
     { 
       nome: "Stress", 
       emoji: "⚠️",
       cdi: cdiBase + 2, 
       ipca: ipcaBase + 1.5, 
-      descricao: "Crise econômica, alta volatilidade",
-      probabilidade: 20,
-      cor: "#ef4444"
+      descricao: "Pressão inflacionária, alta de juros",
+      probabilidade: 20
     },
     { 
-      nome: "Hiperinflação", 
+      nome: "Adverso", 
       emoji: "🔥",
       cdi: cdiBase + 3, 
       ipca: ipcaBase + 3, 
-      descricao: "Cenário extremo inflacionário",
-      probabilidade: 10,
-      cor: "#dc2626"
+      descricao: "Cenário macroeconômico adverso",
+      probabilidade: 10
     }
   ];
   
@@ -382,7 +366,7 @@ const gerarCenariosIntuitivos = (ativoAtual, ativoProposto, premissas, horizonte
       valorFinalProposto,
       vantagem,
       vantagemAnualizada,
-      favoravel: vantagem > 0,
+      resultadoFavoravel: vantagem > 0,
       impacto: Math.abs(vantagem) > 50000 ? 'Alto' : Math.abs(vantagem) > 20000 ? 'Médio' : 'Baixo'
     };
   });
@@ -502,14 +486,14 @@ function App() {
     // Gerar dados dos gráficos
     const { dadosEvolucao, dadosRentabilidade } = gerarDadosGraficos(ativoAtual, ativoProposto, premissas, horizonte);
 
-    // Simular Monte Carlo avançado
+    // Simular Monte Carlo
     const resultadosMonteCarlo = simularMonteCarloAvancado(ativoAtual, ativoProposto, premissas, horizonte);
 
     // Calcular breakeven
     const taxaBreakeven = calcularBreakeven(ativoAtual, ativoProposto, premissas, horizonte);
 
-    // Gerar cenários intuitivos
-    const cenariosIntuitivos = gerarCenariosIntuitivos(ativoAtual, ativoProposto, premissas, horizonte);
+    // Gerar cenários
+    const cenariosEconomicos = gerarCenariosEconomicos(ativoAtual, ativoProposto, premissas, horizonte);
 
     setResultados({
       valorFinalAtual,
@@ -524,7 +508,7 @@ function App() {
 
     setMonteCarlo(resultadosMonteCarlo);
     setBreakeven(taxaBreakeven);
-    setCenarios(cenariosIntuitivos);
+    setCenarios(cenariosEconomicos);
   };
 
   return (
@@ -537,110 +521,131 @@ function App() {
 
       <main className="main">
         <div className="container">
-          {/* Cards de Input COMPACTOS */}
+          {/* Cards de Input SIMÉTRICOS */}
           <div className="input-section">
-            <div className="input-grid">
-              {/* Card Premissas Compacto */}
-              <div className="input-card premissas">
-                <h3>📊 Premissas</h3>
-                <div className="premissas-compact">
-                  <div className="premissa-row">
-                    <label>CDI (%)</label>
-                    <div className="inputs-inline">
+            <div className="input-grid-symmetric">
+              {/* Card Premissas */}
+              <div className="input-card">
+                <div className="card-header">
+                  <h3>📊 Premissas Macroeconômicas</h3>
+                  <p>Projeções anuais para o horizonte de análise</p>
+                </div>
+                <div className="card-content">
+                  <div className="premissa-group">
+                    <label className="input-label">Taxa CDI (%)</label>
+                    <div className="inputs-row">
                       {premissas.cdi.map((valor, index) => (
-                        <input
-                          key={index}
-                          type="number"
-                          step="0.1"
-                          value={valor}
-                          onChange={(e) => {
-                            const novasCDI = [...premissas.cdi];
-                            novasCDI[index] = parseFloat(e.target.value) || 0;
-                            setPremissas({...premissas, cdi: novasCDI});
-                          }}
-                          className="input-tiny"
-                          placeholder={`A${index + 1}`}
-                        />
+                        <div key={index} className="input-wrapper">
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={valor}
+                            onChange={(e) => {
+                              const novasCDI = [...premissas.cdi];
+                              novasCDI[index] = parseFloat(e.target.value) || 0;
+                              setPremissas({...premissas, cdi: novasCDI});
+                            }}
+                            className="input-field"
+                          />
+                          <span className="input-label-small">Ano {index + 1}</span>
+                        </div>
                       ))}
                     </div>
                   </div>
-                  <div className="premissa-row">
-                    <label>IPCA (%)</label>
-                    <div className="inputs-inline">
+                  <div className="premissa-group">
+                    <label className="input-label">IPCA (%)</label>
+                    <div className="inputs-row">
                       {premissas.ipca.map((valor, index) => (
-                        <input
-                          key={index}
-                          type="number"
-                          step="0.1"
-                          value={valor}
-                          onChange={(e) => {
-                            const novasIPCA = [...premissas.ipca];
-                            novasIPCA[index] = parseFloat(e.target.value) || 0;
-                            setPremissas({...premissas, ipca: novasIPCA});
-                          }}
-                          className="input-tiny"
-                          placeholder={`A${index + 1}`}
-                        />
+                        <div key={index} className="input-wrapper">
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={valor}
+                            onChange={(e) => {
+                              const novasIPCA = [...premissas.ipca];
+                              novasIPCA[index] = parseFloat(e.target.value) || 0;
+                              setPremissas({...premissas, ipca: novasIPCA});
+                            }}
+                            className="input-field"
+                          />
+                          <span className="input-label-small">Ano {index + 1}</span>
+                        </div>
                       ))}
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Card Ativo Atual Compacto */}
-              <div className="input-card atual">
-                <h3>🔵 Ativo Atual</h3>
-                <div className="ativo-compact">
-                  <div className="ativo-row">
-                    <select
-                      value={ativoAtual.indexador}
-                      onChange={(e) => setAtivoAtual({...ativoAtual, indexador: e.target.value})}
-                      className="input-compact"
-                    >
-                      <option value="pre">Pré</option>
-                      <option value="pos">Pós</option>
-                      <option value="ipca">IPCA+</option>
-                    </select>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={ativoAtual.taxa}
-                      onChange={(e) => setAtivoAtual({...ativoAtual, taxa: parseFloat(e.target.value) || 0})}
-                      className="input-compact"
-                      placeholder="Taxa %"
-                    />
-                    <input
-                      type="number"
-                      step="0.5"
-                      value={ativoAtual.prazo}
-                      onChange={(e) => setAtivoAtual({...ativoAtual, prazo: parseFloat(e.target.value) || 0})}
-                      className="input-compact"
-                      placeholder="Anos"
-                    />
+              {/* Card Ativo Atual */}
+              <div className="input-card">
+                <div className="card-header">
+                  <h3>🔵 Ativo Atual</h3>
+                  <p>Características do investimento atual</p>
+                </div>
+                <div className="card-content">
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label className="input-label">Indexador</label>
+                      <select
+                        value={ativoAtual.indexador}
+                        onChange={(e) => setAtivoAtual({...ativoAtual, indexador: e.target.value})}
+                        className="input-field"
+                      >
+                        <option value="pre">Pré-fixado</option>
+                        <option value="pos">Pós-fixado (CDI)</option>
+                        <option value="ipca">IPCA+</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="input-label">Taxa (%)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={ativoAtual.taxa}
+                        onChange={(e) => setAtivoAtual({...ativoAtual, taxa: parseFloat(e.target.value) || 0})}
+                        className="input-field"
+                      />
+                    </div>
                   </div>
-                  <div className="ativo-row">
-                    <input
-                      type="number"
-                      step="1000"
-                      value={ativoAtual.valorInvestido}
-                      onChange={(e) => setAtivoAtual({...ativoAtual, valorInvestido: parseFloat(e.target.value) || 0})}
-                      className="input-compact"
-                      placeholder="Valor R$"
-                    />
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      max="22.5"
-                      value={ativoAtual.aliquotaIR}
-                      onChange={(e) => setAtivoAtual({...ativoAtual, aliquotaIR: parseFloat(e.target.value) || 0})}
-                      className="input-compact"
-                      placeholder="IR %"
-                    />
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label className="input-label">Prazo (anos)</label>
+                      <input
+                        type="number"
+                        step="0.5"
+                        value={ativoAtual.prazo}
+                        onChange={(e) => setAtivoAtual({...ativoAtual, prazo: parseFloat(e.target.value) || 0})}
+                        className="input-field"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="input-label">Valor (R$)</label>
+                      <input
+                        type="number"
+                        step="1000"
+                        value={ativoAtual.valorInvestido}
+                        onChange={(e) => setAtivoAtual({...ativoAtual, valorInvestido: parseFloat(e.target.value) || 0})}
+                        className="input-field"
+                      />
+                    </div>
                   </div>
-                  <div className="reinvest-compact">
-                    <label>Reinvestimento:</label>
-                    <div className="reinvest-options">
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label className="input-label">Alíquota IR (%)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="22.5"
+                        value={ativoAtual.aliquotaIR}
+                        onChange={(e) => setAtivoAtual({...ativoAtual, aliquotaIR: parseFloat(e.target.value) || 0})}
+                        className="input-field"
+                      />
+                    </div>
+                  </div>
+                  <div className="reinvestimento-section">
+                    <label className="input-label">Reinvestimento após vencimento</label>
+                    <div className="radio-group">
                       <label className="radio-option">
                         <input
                           type="radio"
@@ -649,14 +654,15 @@ function App() {
                           checked={ativoAtual.tipoReinvestimento === 'cdi'}
                           onChange={(e) => setAtivoAtual({...ativoAtual, tipoReinvestimento: e.target.value})}
                         />
-                        CDI
+                        <span>CDI</span>
                         <input
                           type="number"
                           value={ativoAtual.taxaReinvestimentoCDI || 100}
                           onChange={(e) => setAtivoAtual({...ativoAtual, taxaReinvestimentoCDI: parseFloat(e.target.value) || 100})}
                           className="input-mini"
                           disabled={ativoAtual.tipoReinvestimento !== 'cdi'}
-                        />%
+                        />
+                        <span>%</span>
                       </label>
                       <label className="radio-option">
                         <input
@@ -666,64 +672,102 @@ function App() {
                           checked={ativoAtual.tipoReinvestimento === 'ipca'}
                           onChange={(e) => setAtivoAtual({...ativoAtual, tipoReinvestimento: e.target.value})}
                         />
-                        IPCA+
+                        <span>IPCA+</span>
                         <input
                           type="number"
                           value={ativoAtual.taxaReinvestimentoIPCA || 6}
                           onChange={(e) => setAtivoAtual({...ativoAtual, taxaReinvestimentoIPCA: parseFloat(e.target.value) || 6})}
                           className="input-mini"
                           disabled={ativoAtual.tipoReinvestimento !== 'ipca'}
-                        />%
+                        />
+                        <span>%</span>
+                      </label>
+                      <label className="radio-option">
+                        <input
+                          type="radio"
+                          name="reinvestimento"
+                          value="pre"
+                          checked={ativoAtual.tipoReinvestimento === 'pre'}
+                          onChange={(e) => setAtivoAtual({...ativoAtual, tipoReinvestimento: e.target.value})}
+                        />
+                        <span>Pré</span>
+                        <input
+                          type="number"
+                          value={ativoAtual.taxaReinvestimentoPre || 12}
+                          onChange={(e) => setAtivoAtual({...ativoAtual, taxaReinvestimentoPre: parseFloat(e.target.value) || 12})}
+                          className="input-mini"
+                          disabled={ativoAtual.tipoReinvestimento !== 'pre'}
+                        />
+                        <span>%</span>
                       </label>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Card Ativo Proposto Compacto */}
-              <div className="input-card proposto">
-                <h3>🔷 Ativo Proposto</h3>
-                <div className="ativo-compact">
-                  <div className="ativo-row">
-                    <select
-                      value={ativoProposto.indexador}
-                      onChange={(e) => setAtivoProposto({...ativoProposto, indexador: e.target.value})}
-                      className="input-compact"
-                    >
-                      <option value="pre">Pré</option>
-                      <option value="pos">Pós</option>
-                      <option value="ipca">IPCA+</option>
-                    </select>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={ativoProposto.taxa}
-                      onChange={(e) => setAtivoProposto({...ativoProposto, taxa: parseFloat(e.target.value) || 0})}
-                      className="input-compact"
-                      placeholder="Taxa %"
-                    />
-                    <input
-                      type="number"
-                      step="0.5"
-                      value={ativoProposto.prazo}
-                      onChange={(e) => setAtivoProposto({...ativoProposto, prazo: parseFloat(e.target.value) || 0})}
-                      className="input-compact"
-                      placeholder="Anos"
-                    />
+              {/* Card Ativo Proposto */}
+              <div className="input-card">
+                <div className="card-header">
+                  <h3>🔷 Ativo Proposto</h3>
+                  <p>Características da nova oportunidade</p>
+                </div>
+                <div className="card-content">
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label className="input-label">Indexador</label>
+                      <select
+                        value={ativoProposto.indexador}
+                        onChange={(e) => setAtivoProposto({...ativoProposto, indexador: e.target.value})}
+                        className="input-field"
+                      >
+                        <option value="pre">Pré-fixado</option>
+                        <option value="pos">Pós-fixado (CDI)</option>
+                        <option value="ipca">IPCA+</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="input-label">Taxa (%)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={ativoProposto.taxa}
+                        onChange={(e) => setAtivoProposto({...ativoProposto, taxa: parseFloat(e.target.value) || 0})}
+                        className="input-field"
+                      />
+                    </div>
                   </div>
-                  <div className="ativo-row">
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      max="22.5"
-                      value={ativoProposto.aliquotaIR}
-                      onChange={(e) => setAtivoProposto({...ativoProposto, aliquotaIR: parseFloat(e.target.value) || 0})}
-                      className="input-compact"
-                      placeholder="IR %"
-                    />
-                    <div className="horizonte-display">
-                      <span>Horizonte: {horizonte} anos</span>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label className="input-label">Prazo (anos)</label>
+                      <input
+                        type="number"
+                        step="0.5"
+                        value={ativoProposto.prazo}
+                        onChange={(e) => setAtivoProposto({...ativoProposto, prazo: parseFloat(e.target.value) || 0})}
+                        className="input-field"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="input-label">Alíquota IR (%)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="22.5"
+                        value={ativoProposto.aliquotaIR}
+                        onChange={(e) => setAtivoProposto({...ativoProposto, aliquotaIR: parseFloat(e.target.value) || 0})}
+                        className="input-field"
+                      />
+                    </div>
+                  </div>
+                  <div className="horizonte-info">
+                    <div className="info-item">
+                      <span className="info-label">Horizonte de Análise:</span>
+                      <span className="info-value">{horizonte} anos</span>
+                    </div>
+                    <div className="info-item">
+                      <span className="info-label">Reinvestimento:</span>
+                      <span className="info-value">CDI 100% após vencimento</span>
                     </div>
                   </div>
                 </div>
@@ -732,7 +776,7 @@ function App() {
 
             <div className="calculate-section">
               <button onClick={calcularAnalise} className="calculate-btn">
-                Calcular Análise
+                Calcular Análise Comparativa
               </button>
             </div>
           </div>
@@ -745,31 +789,31 @@ function App() {
                   className={`tab ${abaAtiva === 'resumo' ? 'active' : ''}`}
                   onClick={() => setAbaAtiva('resumo')}
                 >
-                  📊 Resumo
+                  📊 Resumo Executivo
                 </button>
                 <button 
                   className={`tab ${abaAtiva === 'graficos' ? 'active' : ''}`}
                   onClick={() => setAbaAtiva('graficos')}
                 >
-                  📈 Gráficos
+                  📈 Evolução Patrimonial
                 </button>
                 <button 
                   className={`tab ${abaAtiva === 'montecarlo' ? 'active' : ''}`}
                   onClick={() => setAbaAtiva('montecarlo')}
                 >
-                  🎲 Monte Carlo
+                  🎲 Análise de Risco
                 </button>
                 <button 
                   className={`tab ${abaAtiva === 'cenarios' ? 'active' : ''}`}
                   onClick={() => setAbaAtiva('cenarios')}
                 >
-                  🎯 Cenários
+                  🎯 Cenários Econômicos
                 </button>
                 <button 
                   className={`tab ${abaAtiva === 'relatorio' ? 'active' : ''}`}
                   onClick={() => setAbaAtiva('relatorio')}
                 >
-                  📝 Relatório
+                  📝 Relatório Técnico
                 </button>
               </div>
 
@@ -778,36 +822,36 @@ function App() {
                 {abaAtiva === 'resumo' && (
                   <div className="resumo-content">
                     <div className="metrics-grid">
-                      <div className={`metric-card ${resultados.vantagem > 0 ? 'positive' : 'negative'}`}>
-                        <h4>Vantagem Total</h4>
+                      <div className="metric-card">
+                        <h4>Resultado Esperado</h4>
                         <div className="metric-value">{formatarValor(resultados.vantagem)}</div>
-                        <div className="metric-label">Em {horizonte} anos</div>
+                        <div className="metric-label">Diferença em {horizonte} anos</div>
                       </div>
-                      <div className={`metric-card ${resultados.vantagemAnualizada > 0 ? 'positive' : 'negative'}`}>
+                      <div className="metric-card">
                         <h4>Vantagem Anualizada</h4>
                         <div className="metric-value">{formatarPercentual(resultados.vantagemAnualizada)}</div>
-                        <div className="metric-label">Por ano</div>
+                        <div className="metric-label">Diferença percentual ao ano</div>
                       </div>
-                      <div className="metric-card breakeven">
-                        <h4>Taxa Breakeven</h4>
+                      <div className="metric-card">
+                        <h4>Taxa de Equilíbrio</h4>
                         <div className="metric-value">{formatarPercentual(breakeven)}</div>
-                        <div className="metric-label">Taxa de equilíbrio</div>
+                        <div className="metric-label">Breakeven do ativo proposto</div>
                       </div>
                       <div className="metric-card">
-                        <h4>Valor Final Atual</h4>
+                        <h4>Estratégia Atual</h4>
                         <div className="metric-value">{formatarValor(resultados.valorFinalAtual)}</div>
-                        <div className="metric-label">Estratégia atual</div>
+                        <div className="metric-label">Valor final projetado</div>
                       </div>
                       <div className="metric-card">
-                        <h4>Valor Final Proposto</h4>
+                        <h4>Estratégia Proposta</h4>
                         <div className="metric-value">{formatarValor(resultados.valorFinalProposto)}</div>
-                        <div className="metric-label">Nova estratégia</div>
+                        <div className="metric-label">Valor final projetado</div>
                       </div>
                       {monteCarlo && (
                         <div className="metric-card">
-                          <h4>Probabilidade de Sucesso</h4>
-                          <div className="metric-value">{formatarPercentual(monteCarlo.probabilidadeSucesso)}</div>
-                          <div className="metric-label">Monte Carlo</div>
+                          <h4>Probabilidade de Resultado Positivo</h4>
+                          <div className="metric-value">{formatarPercentual(monteCarlo.probabilidadeResultadoPositivo)}</div>
+                          <div className="metric-label">Análise de risco (Monte Carlo)</div>
                         </div>
                       )}
                     </div>
@@ -825,10 +869,10 @@ function App() {
                           <YAxis tickFormatter={formatarValorMilhoes} domain={['dataMin * 0.95', 'dataMax * 1.05']} />
                           <Tooltip formatter={(value) => formatarValor(value)} />
                           <Legend />
-                          <Line type="monotone" dataKey="atual" stroke="#ef4444" strokeWidth={3} name="Estratégia Atual" />
-                          <Line type="monotone" dataKey="proposto" stroke="#22c55e" strokeWidth={3} name="Estratégia Proposta" />
-                          <ReferenceLine x={`Ano ${ativoAtual.prazo}`} stroke="#ef4444" strokeDasharray="5 5" label="Vencimento Atual" />
-                          <ReferenceLine x={`Ano ${ativoProposto.prazo}`} stroke="#22c55e" strokeDasharray="5 5" label="Vencimento Proposto" />
+                          <Line type="monotone" dataKey="atual" stroke="#64748b" strokeWidth={3} name="Estratégia Atual" />
+                          <Line type="monotone" dataKey="proposto" stroke="#3b82f6" strokeWidth={3} name="Estratégia Proposta" />
+                          <ReferenceLine x={`Ano ${ativoAtual.prazo}`} stroke="#64748b" strokeDasharray="5 5" label="Vencimento Atual" />
+                          <ReferenceLine x={`Ano ${ativoProposto.prazo}`} stroke="#3b82f6" strokeDasharray="5 5" label="Vencimento Proposto" />
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
@@ -842,8 +886,8 @@ function App() {
                           <YAxis tickFormatter={formatarPercentual} domain={['dataMin * 0.95', 'dataMax * 1.05']} />
                           <Tooltip formatter={(value) => formatarPercentual(value)} />
                           <Legend />
-                          <Line type="monotone" dataKey="atual" stroke="#ef4444" strokeWidth={3} name="Estratégia Atual" />
-                          <Line type="monotone" dataKey="proposto" stroke="#22c55e" strokeWidth={3} name="Estratégia Proposta" />
+                          <Line type="monotone" dataKey="atual" stroke="#64748b" strokeWidth={3} name="Estratégia Atual" />
+                          <Line type="monotone" dataKey="proposto" stroke="#3b82f6" strokeWidth={3} name="Estratégia Proposta" />
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
@@ -853,35 +897,37 @@ function App() {
                 {abaAtiva === 'montecarlo' && monteCarlo && (
                   <div className="montecarlo-content">
                     <div className="montecarlo-intro">
-                      <h3>🎲 Análise de Monte Carlo: Explorando a Incerteza</h3>
+                      <h3>🎲 Análise de Risco: Simulação de Monte Carlo</h3>
                       <p>
-                        Imagine que você pudesse ver 10.000 futuros possíveis para sua decisão de investimento. 
-                        É exatamente isso que a simulação de Monte Carlo faz: ela testa sua estratégia em milhares 
-                        de cenários econômicos diferentes, revelando não apenas o resultado mais provável, mas toda 
-                        a gama de possibilidades.
+                        A simulação de Monte Carlo testa sua decisão de investimento em 10.000 cenários econômicos diferentes, 
+                        considerando variações aleatórias nas premissas macroeconômicas. Esta análise revela não apenas o 
+                        resultado mais provável, mas toda a distribuição de possibilidades, permitindo uma avaliação 
+                        quantitativa do risco da estratégia.
                       </p>
                     </div>
 
-                    <div className="montecarlo-stats-grid">
-                      <div className="stat-card expectativa">
-                        <h4>💰 Expectativa</h4>
-                        <div className="stat-value">{formatarValor(monteCarlo.media)}</div>
-                        <div className="stat-desc">Resultado médio esperado</div>
-                      </div>
-                      <div className="stat-card probabilidade">
-                        <h4>🎯 Probabilidade de Sucesso</h4>
-                        <div className="stat-value">{formatarPercentual(monteCarlo.probabilidadeSucesso)}</div>
-                        <div className="stat-desc">Chance de ganhar dinheiro</div>
-                      </div>
-                      <div className="stat-card risco">
-                        <h4>⚠️ Risco de Perda</h4>
-                        <div className="stat-value">{formatarPercentual(monteCarlo.probabilidadePerda)}</div>
-                        <div className="stat-desc">Chance de perder &gt; R$ 50k</div>
-                      </div>
-                      <div className="stat-card upside">
-                        <h4>🚀 Potencial de Ganho</h4>
-                        <div className="stat-value">{formatarPercentual(monteCarlo.probabilidadeGanhoAlto)}</div>
-                        <div className="stat-desc">Chance de ganhar &gt; R$ 100k</div>
+                    <div className="montecarlo-stats">
+                      <div className="stats-grid">
+                        <div className="stat-item">
+                          <h4>💰 Resultado Esperado</h4>
+                          <div className="stat-value">{formatarValor(monteCarlo.media)}</div>
+                          <div className="stat-desc">Média das simulações</div>
+                        </div>
+                        <div className="stat-item">
+                          <h4>📊 Resultado Mediano</h4>
+                          <div className="stat-value">{formatarValor(monteCarlo.mediana)}</div>
+                          <div className="stat-desc">50% dos cenários</div>
+                        </div>
+                        <div className="stat-item">
+                          <h4>📈 Probabilidade de Resultado Positivo</h4>
+                          <div className="stat-value">{formatarPercentual(monteCarlo.probabilidadeResultadoPositivo)}</div>
+                          <div className="stat-desc">Estratégia proposta melhor</div>
+                        </div>
+                        <div className="stat-item">
+                          <h4>📉 Probabilidade de Resultado Negativo</h4>
+                          <div className="stat-value">{formatarPercentual(monteCarlo.probabilidadeResultadoNegativo)}</div>
+                          <div className="stat-desc">Estratégia atual melhor</div>
+                        </div>
                       </div>
                     </div>
 
@@ -893,80 +939,58 @@ function App() {
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="bin" tickFormatter={formatarValorMilhoes} />
                             <YAxis />
-                            <Tooltip formatter={(value, name) => [value, name === 'frequencia' ? 'Frequência' : 'Normal']} />
-                            <Bar dataKey="frequencia" fill={(entry) => entry.favoravel ? '#22c55e' : '#ef4444'} />
+                            <Tooltip formatter={(value, name) => [value, 'Frequência']} />
+                            <Bar dataKey="frequencia" fill="#64748b" />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
 
-                      <div className="chart-container">
-                        <h4>Distribuição por Faixas de Resultado</h4>
-                        <ResponsiveContainer width="100%" height={300}>
-                          <PieChart>
-                            <Pie
-                              data={monteCarlo.distribuicaoFaixas}
-                              cx="50%"
-                              cy="50%"
-                              outerRadius={100}
-                              fill="#8884d8"
-                              dataKey="percentual"
-                              label={({nome, percentual}) => `${nome}: ${percentual.toFixed(1)}%`}
-                            >
-                              {monteCarlo.distribuicaoFaixas.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.cor} />
-                              ))}
-                            </Pie>
-                            <Tooltip formatter={(value) => `${value.toFixed(1)}%`} />
-                          </PieChart>
-                        </ResponsiveContainer>
+                      <div className="percentis-analysis">
+                        <h4>📊 Análise de Percentis</h4>
+                        <div className="percentis-table">
+                          <div className="percentil-row">
+                            <span className="percentil-label">5% (Cenário Adverso)</span>
+                            <span className="percentil-value">{formatarValor(monteCarlo.percentis.p5)}</span>
+                          </div>
+                          <div className="percentil-row">
+                            <span className="percentil-label">25% (Cenário Conservador)</span>
+                            <span className="percentil-value">{formatarValor(monteCarlo.percentis.p25)}</span>
+                          </div>
+                          <div className="percentil-row">
+                            <span className="percentil-label">50% (Cenário Base)</span>
+                            <span className="percentil-value">{formatarValor(monteCarlo.mediana)}</span>
+                          </div>
+                          <div className="percentil-row">
+                            <span className="percentil-label">75% (Cenário Otimista)</span>
+                            <span className="percentil-value">{formatarValor(monteCarlo.percentis.p75)}</span>
+                          </div>
+                          <div className="percentil-row">
+                            <span className="percentil-label">95% (Cenário Muito Otimista)</span>
+                            <span className="percentil-value">{formatarValor(monteCarlo.percentis.p95)}</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
                     <div className="montecarlo-insights">
-                      <div className="insight-card">
-                        <h4>🔍 O que isso significa?</h4>
+                      <div className="insight-section">
+                        <h4>🔍 Interpretação dos Resultados</h4>
                         <p>
-                          <strong>Cenário Base:</strong> Em {monteCarlo.probabilidadeSucesso.toFixed(0)}% dos casos, 
-                          a estratégia proposta supera a atual. O ganho médio esperado é de {formatarValor(monteCarlo.media)}.
+                          <strong>Análise de Probabilidade:</strong> Em {monteCarlo.probabilidadeResultadoPositivo.toFixed(0)}% dos cenários simulados, 
+                          a estratégia proposta apresenta resultado superior à atual. O resultado esperado médio é de {formatarValor(monteCarlo.media)}.
                         </p>
                         <p>
-                          <strong>Gestão de Risco:</strong> No pior cenário (5% das vezes), você pode ter uma 
-                          desvantagem de até {formatarValor(monteCarlo.percentis.p5)}. No melhor cenário (5% das vezes), 
-                          o ganho pode chegar a {formatarValor(monteCarlo.percentis.p95)}.
+                          <strong>Gestão de Risco:</strong> No cenário adverso (5% das simulações), o resultado pode ser 
+                          {monteCarlo.percentis.p5 < 0 ? 'desfavorável' : 'favorável'} em até {formatarValor(Math.abs(monteCarlo.percentis.p5))}. 
+                          No cenário otimista (5% das simulações), o resultado pode alcançar {formatarValor(monteCarlo.percentis.p95)}.
                         </p>
                         <p>
-                          <strong>Decisão Recomendada:</strong> {monteCarlo.probabilidadeSucesso > 70 ? 
-                            'A estratégia proposta apresenta alta probabilidade de sucesso e risco controlado.' :
-                            monteCarlo.probabilidadeSucesso > 50 ?
-                            'A estratégia proposta tem probabilidade moderada de sucesso. Avalie seu perfil de risco.' :
-                            'A estratégia atual pode ser mais adequada dado o nível de incerteza.'}
+                          <strong>Recomendação Técnica:</strong> {monteCarlo.probabilidadeResultadoPositivo > 70 ? 
+                            'A estratégia proposta apresenta alta probabilidade de resultado superior com risco controlado.' :
+                            monteCarlo.probabilidadeResultadoPositivo > 50 ?
+                            'A estratégia proposta tem probabilidade moderada de resultado superior. Avalie seu perfil de risco.' :
+                            'A estratégia atual pode ser mais adequada considerando o nível de incerteza identificado.'}
                         </p>
-                      </div>
-
-                      <div className="percentis-card">
-                        <h4>📊 Análise de Percentis</h4>
-                        <div className="percentis-grid">
-                          <div className="percentil">
-                            <span className="percentil-label">5% (Pessimista)</span>
-                            <span className="percentil-value">{formatarValor(monteCarlo.percentis.p5)}</span>
-                          </div>
-                          <div className="percentil">
-                            <span className="percentil-label">25% (Conservador)</span>
-                            <span className="percentil-value">{formatarValor(monteCarlo.percentis.p25)}</span>
-                          </div>
-                          <div className="percentil">
-                            <span className="percentil-label">50% (Mediana)</span>
-                            <span className="percentil-value">{formatarValor(monteCarlo.mediana)}</span>
-                          </div>
-                          <div className="percentil">
-                            <span className="percentil-label">75% (Otimista)</span>
-                            <span className="percentil-value">{formatarValor(monteCarlo.percentis.p75)}</span>
-                          </div>
-                          <div className="percentil">
-                            <span className="percentil-label">95% (Muito Otimista)</span>
-                            <span className="percentil-value">{formatarValor(monteCarlo.percentis.p95)}</span>
-                          </div>
-                        </div>
                       </div>
                     </div>
                   </div>
@@ -975,93 +999,92 @@ function App() {
                 {abaAtiva === 'cenarios' && cenarios && (
                   <div className="cenarios-content">
                     <div className="cenarios-intro">
-                      <h3>🎯 Análise de Cenários: Como sua estratégia se comporta?</h3>
+                      <h3>🎯 Análise de Cenários Econômicos</h3>
                       <p>
-                        Testamos sua decisão em 4 cenários econômicos distintos, cada um com probabilidades 
-                        baseadas em análises históricas. Veja como sua estratégia se adapta a diferentes 
-                        condições de mercado.
+                        Avaliação da estratégia em 4 cenários macroeconômicos distintos, com probabilidades baseadas 
+                        em análises históricas da economia brasileira. Cada cenário testa como variações nas taxas 
+                        de juros e inflação afetam o resultado da decisão de investimento.
                       </p>
                     </div>
 
-                    <div className="cenarios-visual">
+                    <div className="cenarios-grid">
                       {cenarios.map((cenario, index) => (
-                        <div key={index} className={`cenario-card ${cenario.favoravel ? 'favoravel' : 'desfavoravel'}`}>
+                        <div key={index} className="cenario-card">
                           <div className="cenario-header">
                             <span className="cenario-emoji">{cenario.emoji}</span>
                             <div className="cenario-info">
                               <h4>{cenario.nome}</h4>
                               <p>{cenario.descricao}</p>
-                              <span className="probabilidade">Probabilidade: {cenario.probabilidade}%</span>
+                              <span className="probabilidade">Probabilidade histórica: {cenario.probabilidade}%</span>
                             </div>
                           </div>
                           
                           <div className="cenario-metrics">
-                            <div className="metric">
+                            <div className="metric-row">
                               <span className="metric-label">CDI</span>
                               <span className="metric-value">{formatarPercentual(cenario.cdi)}</span>
                             </div>
-                            <div className="metric">
+                            <div className="metric-row">
                               <span className="metric-label">IPCA</span>
                               <span className="metric-value">{formatarPercentual(cenario.ipca)}</span>
                             </div>
-                            <div className="metric">
-                              <span className="metric-label">Vantagem</span>
-                              <span className={`metric-value ${cenario.favoravel ? 'positive' : 'negative'}`}>
-                                {formatarValor(cenario.vantagem)}
-                              </span>
+                            <div className="metric-row">
+                              <span className="metric-label">Resultado</span>
+                              <span className="metric-value">{formatarValor(cenario.vantagem)}</span>
                             </div>
-                            <div className="metric">
+                            <div className="metric-row">
+                              <span className="metric-label">Vantagem Anual</span>
+                              <span className="metric-value">{formatarPercentual(cenario.vantagemAnualizada)}</span>
+                            </div>
+                            <div className="metric-row">
                               <span className="metric-label">Impacto</span>
-                              <span className={`metric-value impact-${cenario.impacto.toLowerCase()}`}>
-                                {cenario.impacto}
-                              </span>
+                              <span className="metric-value">{cenario.impacto}</span>
                             </div>
                           </div>
 
-                          <div className="cenario-bar">
-                            <div 
-                              className={`bar-fill ${cenario.favoravel ? 'positive' : 'negative'}`}
-                              style={{width: `${Math.min(Math.abs(cenario.vantagemAnualizada) * 10, 100)}%`}}
-                            ></div>
+                          <div className="resultado-indicator">
+                            <span className={`resultado-badge ${cenario.resultadoFavoravel ? 'positivo' : 'negativo'}`}>
+                              {cenario.resultadoFavoravel ? 'Resultado Favorável' : 'Resultado Desfavorável'}
+                            </span>
                           </div>
                         </div>
                       ))}
                     </div>
 
                     <div className="cenarios-summary">
-                      <div className="summary-card">
-                        <h4>📈 Resumo da Análise</h4>
-                        <div className="summary-stats">
-                          <div className="summary-stat">
-                            <span className="stat-label">Cenários Favoráveis</span>
-                            <span className="stat-value">
-                              {cenarios.filter(c => c.favoravel).length} de {cenarios.length}
+                      <div className="summary-content">
+                        <h4>📈 Síntese da Análise</h4>
+                        <div className="summary-metrics">
+                          <div className="summary-item">
+                            <span className="summary-label">Cenários Favoráveis</span>
+                            <span className="summary-value">
+                              {cenarios.filter(c => c.resultadoFavoravel).length} de {cenarios.length}
                             </span>
                           </div>
-                          <div className="summary-stat">
-                            <span className="stat-label">Probabilidade Ponderada</span>
-                            <span className="stat-value">
+                          <div className="summary-item">
+                            <span className="summary-label">Probabilidade Ponderada</span>
+                            <span className="summary-value">
                               {formatarPercentual(
-                                cenarios.reduce((acc, c) => acc + (c.favoravel ? c.probabilidade : 0), 0)
+                                cenarios.reduce((acc, c) => acc + (c.resultadoFavoravel ? c.probabilidade : 0), 0)
                               )}
                             </span>
                           </div>
-                          <div className="summary-stat">
-                            <span className="stat-label">Maior Risco</span>
-                            <span className="stat-value">
-                              {cenarios.find(c => c.impacto === 'Alto' && !c.favoravel)?.nome || 'Baixo'}
+                          <div className="summary-item">
+                            <span className="summary-label">Cenário de Maior Risco</span>
+                            <span className="summary-value">
+                              {cenarios.find(c => c.impacto === 'Alto' && !c.resultadoFavoravel)?.nome || 'Baixo risco identificado'}
                             </span>
                           </div>
                         </div>
                         
-                        <div className="recommendation">
-                          <h5>💡 Recomendação</h5>
+                        <div className="recommendation-box">
+                          <h5>💡 Recomendação Estratégica</h5>
                           <p>
-                            {cenarios.filter(c => c.favoravel).length >= 3 ?
-                              'A estratégia proposta demonstra robustez em múltiplos cenários econômicos. Recomendamos a migração.' :
-                              cenarios.filter(c => c.favoravel).length >= 2 ?
-                              'A estratégia proposta apresenta resultados mistos. Considere seu perfil de risco antes de decidir.' :
-                              'A estratégia atual pode ser mais adequada dado os riscos identificados nos cenários testados.'
+                            {cenarios.filter(c => c.resultadoFavoravel).length >= 3 ?
+                              'A estratégia proposta demonstra robustez em múltiplos cenários econômicos, apresentando resultado superior na maioria das condições testadas.' :
+                              cenarios.filter(c => c.resultadoFavoravel).length >= 2 ?
+                              'A estratégia proposta apresenta resultados mistos nos cenários analisados. Recomenda-se avaliação detalhada do perfil de risco do investidor.' :
+                              'A estratégia atual pode ser mais adequada considerando os riscos identificados nos cenários macroeconômicos testados.'
                             }
                           </p>
                         </div>
@@ -1073,7 +1096,7 @@ function App() {
                 {abaAtiva === 'relatorio' && (
                   <div className="relatorio-content">
                     <div className="relatorio-header">
-                      <h3>📝 Relatório Executivo</h3>
+                      <h3>📝 Relatório Técnico de Análise Comparativa</h3>
                       <button 
                         className="copy-button"
                         onClick={() => {
@@ -1092,32 +1115,32 @@ function App() {
                         <strong>Resumo Executivo:</strong> Análise comparativa entre a estratégia atual 
                         ({ativoAtual.indexador.toUpperCase()} {formatarPercentual(ativoAtual.taxa)} por {ativoAtual.prazo} anos) 
                         e a oportunidade proposta ({ativoProposto.indexador.toUpperCase()} {formatarPercentual(ativoProposto.taxa)} por {ativoProposto.prazo} anos), 
-                        considerando um horizonte de investimento de {horizonte} anos e valor inicial de {formatarValor(ativoAtual.valorInvestido)}.
+                        considerando horizonte de investimento de {horizonte} anos e valor inicial de {formatarValor(ativoAtual.valorInvestido)}.
                       </p>
 
                       <p>
                         <strong>Resultados Determinísticos:</strong> Sob as premissas macroeconômicas estabelecidas 
                         (CDI iniciando em {formatarPercentual(premissas.cdi[0])} e IPCA em {formatarPercentual(premissas.ipca[0])}), 
-                        a estratégia proposta apresenta vantagem de {formatarValor(resultados.vantagem)} 
-                        ({formatarPercentual(resultados.vantagemAnualizada)} ao ano) em relação à estratégia atual.
+                        a estratégia proposta apresenta resultado {resultados.vantagem > 0 ? 'superior' : 'inferior'} de {formatarValor(Math.abs(resultados.vantagem))} 
+                        ({formatarPercentual(Math.abs(resultados.vantagemAnualizada))} ao ano) em relação à estratégia atual.
                       </p>
 
                       {monteCarlo && (
                         <p>
                           <strong>Análise de Risco (Monte Carlo):</strong> A simulação de 10.000 cenários revela 
-                          probabilidade de sucesso de {formatarPercentual(monteCarlo.probabilidadeSucesso)}, 
-                          com expectativa de ganho médio de {formatarValor(monteCarlo.media)}. 
-                          O Value at Risk (VaR 95%) indica que, no pior cenário (5% das simulações), 
-                          a desvantagem pode atingir {formatarValor(monteCarlo.percentis.p5)}.
+                          probabilidade de resultado superior de {formatarPercentual(monteCarlo.probabilidadeResultadoPositivo)}, 
+                          com expectativa de resultado médio de {formatarValor(monteCarlo.media)}. 
+                          A análise de risco (VaR 95%) indica que, no cenário adverso (5% das simulações), 
+                          o resultado pode ser desfavorável em até {formatarValor(Math.abs(monteCarlo.percentis.p5))}.
                         </p>
                       )}
 
                       {cenarios && (
                         <p>
                           <strong>Análise de Cenários:</strong> Dos {cenarios.length} cenários econômicos testados, 
-                          {cenarios.filter(c => c.favoravel).length} apresentam resultados favoráveis à migração. 
-                          A probabilidade ponderada de sucesso, considerando as probabilidades históricas de cada cenário, 
-                          é de {formatarPercentual(cenarios.reduce((acc, c) => acc + (c.favoravel ? c.probabilidade : 0), 0))}.
+                          {cenarios.filter(c => c.resultadoFavoravel).length} apresentam resultados favoráveis à migração. 
+                          A probabilidade ponderada de resultado superior, considerando as probabilidades históricas de cada cenário, 
+                          é de {formatarPercentual(cenarios.reduce((acc, c) => acc + (c.resultadoFavoravel ? c.probabilidade : 0), 0))}.
                         </p>
                       )}
 
@@ -1126,17 +1149,18 @@ function App() {
                         {ativoAtual.prazo < ativoProposto.prazo ? 
                           `do ativo atual em ${ativoAtual.tipoReinvestimento.toUpperCase()} após ${ativoAtual.prazo} anos` :
                           `do ativo proposto em CDI após ${ativoProposto.prazo} anos`
-                        } para equalizar o horizonte de investimento.
+                        } para equalizar o horizonte de investimento. As taxas de reinvestimento utilizadas refletem 
+                        condições de mercado esperadas para o período.
                       </p>
 
                       <p>
-                        <strong>Recomendação:</strong> {
-                          resultados.vantagem > 0 && monteCarlo?.probabilidadeSucesso > 70 ?
-                            'MIGRAR - A estratégia proposta apresenta vantagem consistente com risco controlado.' :
-                            resultados.vantagem > 0 && monteCarlo?.probabilidadeSucesso > 50 ?
-                            'CONSIDERAR - A estratégia proposta oferece vantagem, mas requer avaliação do perfil de risco.' :
+                        <strong>Recomendação Técnica:</strong> {
+                          resultados.vantagem > 0 && monteCarlo?.probabilidadeResultadoPositivo > 70 ?
+                            'MIGRAR - A estratégia proposta apresenta resultado superior consistente com risco controlado.' :
+                            resultados.vantagem > 0 && monteCarlo?.probabilidadeResultadoPositivo > 50 ?
+                            'CONSIDERAR - A estratégia proposta oferece resultado superior, mas requer avaliação do perfil de risco.' :
                             'MANTER - A estratégia atual demonstra maior adequação ao cenário analisado.'
-                        }
+                        } A decisão final deve considerar o perfil de risco do investidor e objetivos específicos da carteira.
                       </p>
                     </div>
                   </div>
