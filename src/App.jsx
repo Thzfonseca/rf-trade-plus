@@ -657,6 +657,9 @@ const analisarTendenciaPremissas = (premissas) => {
 
 // Função para formatar valores
 const formatarValor = (valor) => {
+  if (valor === null || valor === undefined || isNaN(valor)) {
+    return 'R$ 0';
+  }
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
@@ -666,6 +669,9 @@ const formatarValor = (valor) => {
 };
 
 const formatarValorMilhoes = (valor) => {
+  if (valor === null || valor === undefined || isNaN(valor)) {
+    return 'R$ 0.0M';
+  }
   if (Math.abs(valor) >= 1000000) {
     return `R$ ${(valor / 1000000).toFixed(1)}M`;
   }
@@ -673,6 +679,9 @@ const formatarValorMilhoes = (valor) => {
 };
 
 const formatarPercentual = (valor) => {
+  if (valor === null || valor === undefined || isNaN(valor)) {
+    return '0.0%';
+  }
   return `${valor.toFixed(1)}%`;
 };
 
@@ -761,6 +770,9 @@ function App() {
 
     // Gerar cenários
     const cenariosEconomicos = gerarCenariosEconomicos(ativoAtual, ativoProposto, premissas, horizonte);
+
+    // Calcular breakeven
+    const taxaBreakeven = calcularBreakeven(ativoAtual, ativoProposto, premissas, horizonte);
 
     setResultados({
       valorFinalAtual,
@@ -1243,7 +1255,7 @@ function App() {
                       <div className="insight-section">
                         <h4>🔍 Interpretação dos Resultados</h4>
                         <p>
-                          <strong>Análise de Probabilidade:</strong> Em {monteCarlo.probabilidadeResultadoPositivo.toFixed(0)}% dos cenários simulados, 
+                          <strong>Análise de Probabilidade:</strong> Em {(monteCarlo.probabilidadeResultadoPositivo || 0).toFixed(0)}% dos cenários simulados, 
                           a estratégia proposta apresenta resultado superior à atual. O resultado esperado médio é de {formatarValor(monteCarlo.media)}.
                         </p>
                         <p>
@@ -1351,7 +1363,7 @@ function App() {
                                 <div className="timing-row">
                                   <span className="label">Vantagem Anualizada:</span>
                                   <span className={`value ${cenario.vantagemAnualizada > 0 ? 'positive' : 'negative'}`}>
-                                    {cenario.vantagemAnualizada > 0 ? '+' : ''}{cenario.vantagemAnualizada.toFixed(2)}% a.a.
+                                    {cenario.vantagemAnualizada > 0 ? '+' : ''}{(cenario.vantagemAnualizada || 0).toFixed(2)}% a.a.
                                   </span>
                                 </div>
                                 <div className="timing-row">
@@ -1384,16 +1396,16 @@ function App() {
                                   <div className="reinvestimento-details">
                                     <div className="timing-row">
                                       <span className="label">Momento do Reinvestimento:</span>
-                                      <span className="value">Ano {cenario.impactoTiming.momentoReinvestimento}</span>
+                                      <span className="value">Ano {cenario.impactoTiming?.momentoReinvestimento || 0}</span>
                                     </div>
                                     <div className="timing-row">
                                       <span className="label">Taxa no Momento:</span>
-                                      <span className="value">{cenario.impactoTiming.taxaNoMomento.toFixed(1)}%</span>
+                                      <span className="value">{(cenario.impactoTiming?.taxaNoMomento || 0).toFixed(1)}%</span>
                                     </div>
                                     <div className="timing-row">
                                       <span className="label">Favorabilidade:</span>
-                                      <span className={`value ${cenario.impactoTiming.favorabilidade.toLowerCase()}`}>
-                                        {cenario.impactoTiming.favorabilidade}
+                                      <span className={`value ${cenario.impactoTiming?.favorabilidade?.toLowerCase() || 'neutro'}`}>
+                                        {cenario.impactoTiming?.favorabilidade || 'Neutro'}
                                       </span>
                                     </div>
                                   </div>
