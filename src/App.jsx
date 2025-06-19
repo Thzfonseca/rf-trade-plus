@@ -946,61 +946,65 @@ function App() {
                   </div>
                   <div className="reinvestimento-section">
                     <label className="input-label">Reinvestimento após vencimento</label>
-                    <div className="radio-group">
-                      <label className="radio-option">
-                        <input
-                          type="radio"
-                          name="reinvestimento"
-                          value="cdi"
-                          checked={ativoAtual.tipoReinvestimento === 'cdi'}
-                          onChange={(e) => setAtivoAtual({...ativoAtual, tipoReinvestimento: e.target.value})}
-                        />
-                        <span>CDI</span>
-                        <input
-                          type="number"
-                          value={ativoAtual.taxaReinvestimentoCDI || 100}
-                          onChange={(e) => setAtivoAtual({...ativoAtual, taxaReinvestimentoCDI: parseFloat(e.target.value) || 100})}
-                          className="input-mini"
-                          disabled={ativoAtual.tipoReinvestimento !== 'cdi'}
-                        />
-                        <span>%</span>
-                      </label>
-                      <label className="radio-option">
-                        <input
-                          type="radio"
-                          name="reinvestimento"
-                          value="ipca"
-                          checked={ativoAtual.tipoReinvestimento === 'ipca'}
-                          onChange={(e) => setAtivoAtual({...ativoAtual, tipoReinvestimento: e.target.value})}
-                        />
-                        <span>IPCA+</span>
-                        <input
-                          type="number"
-                          value={ativoAtual.taxaReinvestimentoIPCA || 6}
-                          onChange={(e) => setAtivoAtual({...ativoAtual, taxaReinvestimentoIPCA: parseFloat(e.target.value) || 6})}
-                          className="input-mini"
-                          disabled={ativoAtual.tipoReinvestimento !== 'ipca'}
-                        />
-                        <span>%</span>
-                      </label>
-                      <label className="radio-option">
-                        <input
-                          type="radio"
-                          name="reinvestimento"
-                          value="pre"
-                          checked={ativoAtual.tipoReinvestimento === 'pre'}
-                          onChange={(e) => setAtivoAtual({...ativoAtual, tipoReinvestimento: e.target.value})}
-                        />
-                        <span>Pré</span>
-                        <input
-                          type="number"
-                          value={ativoAtual.taxaReinvestimentoPre || 12}
-                          onChange={(e) => setAtivoAtual({...ativoAtual, taxaReinvestimentoPre: parseFloat(e.target.value) || 12})}
-                          className="input-mini"
-                          disabled={ativoAtual.tipoReinvestimento !== 'pre'}
-                        />
-                        <span>%</span>
-                      </label>
+                    <div className="reinvestimento-compact">
+                      <div className="reinvestimento-row">
+                        <label className="radio-option-compact">
+                          <input
+                            type="radio"
+                            name="reinvestimento"
+                            value="cdi"
+                            checked={ativoAtual.tipoReinvestimento === 'cdi'}
+                            onChange={(e) => setAtivoAtual({...ativoAtual, tipoReinvestimento: e.target.value})}
+                          />
+                          <span>CDI</span>
+                          <input
+                            type="number"
+                            value={ativoAtual.taxaReinvestimentoCDI || 100}
+                            onChange={(e) => setAtivoAtual({...ativoAtual, taxaReinvestimentoCDI: parseFloat(e.target.value) || 100})}
+                            className="input-mini"
+                            disabled={ativoAtual.tipoReinvestimento !== 'cdi'}
+                          />
+                          <span>%</span>
+                        </label>
+                        <label className="radio-option-compact">
+                          <input
+                            type="radio"
+                            name="reinvestimento"
+                            value="ipca"
+                            checked={ativoAtual.tipoReinvestimento === 'ipca'}
+                            onChange={(e) => setAtivoAtual({...ativoAtual, tipoReinvestimento: e.target.value})}
+                          />
+                          <span>IPCA+</span>
+                          <input
+                            type="number"
+                            value={ativoAtual.taxaReinvestimentoIPCA || 6}
+                            onChange={(e) => setAtivoAtual({...ativoAtual, taxaReinvestimentoIPCA: parseFloat(e.target.value) || 6})}
+                            className="input-mini"
+                            disabled={ativoAtual.tipoReinvestimento !== 'ipca'}
+                          />
+                          <span>%</span>
+                        </label>
+                      </div>
+                      <div className="reinvestimento-row">
+                        <label className="radio-option-compact">
+                          <input
+                            type="radio"
+                            name="reinvestimento"
+                            value="pre"
+                            checked={ativoAtual.tipoReinvestimento === 'pre'}
+                            onChange={(e) => setAtivoAtual({...ativoAtual, tipoReinvestimento: e.target.value})}
+                          />
+                          <span>Pré</span>
+                          <input
+                            type="number"
+                            value={ativoAtual.taxaReinvestimentoPre || 12}
+                            onChange={(e) => setAtivoAtual({...ativoAtual, taxaReinvestimentoPre: parseFloat(e.target.value) || 12})}
+                            className="input-mini"
+                            disabled={ativoAtual.tipoReinvestimento !== 'pre'}
+                          />
+                          <span>%</span>
+                        </label>
+                      </div>
                     </div>
                   </div>
                 </div>
