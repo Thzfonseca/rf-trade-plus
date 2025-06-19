@@ -370,7 +370,6 @@ const gerarCenariosEconomicos = (ativoAtual, ativoProposto, premissas, horizonte
   const cenarios = [
     { 
       nome: "Conservador", 
-      emoji: "🛡️",
       cdi: cdiBase - 1, 
       ipca: ipcaBase - 0.5, 
       descricao: "Economia estável, juros em queda",
@@ -378,7 +377,6 @@ const gerarCenariosEconomicos = (ativoAtual, ativoProposto, premissas, horizonte
     },
     { 
       nome: "Base", 
-      emoji: "📊",
       cdi: cdiBase, 
       ipca: ipcaBase, 
       descricao: "Suas premissas atuais",
@@ -386,7 +384,6 @@ const gerarCenariosEconomicos = (ativoAtual, ativoProposto, premissas, horizonte
     },
     { 
       nome: "Stress", 
-      emoji: "⚠️",
       cdi: cdiBase + 2, 
       ipca: ipcaBase + 1.5, 
       descricao: "Pressão inflacionária, alta de juros",
@@ -394,7 +391,6 @@ const gerarCenariosEconomicos = (ativoAtual, ativoProposto, premissas, horizonte
     },
     { 
       nome: "Adverso", 
-      emoji: "🔥",
       cdi: cdiBase + 3, 
       ipca: ipcaBase + 3, 
       descricao: "Cenário macroeconômico adverso",
@@ -875,12 +871,6 @@ function App() {
 
   return (
     <div className="app">
-      <header className="header">
-        <div className="header-content">
-          <h1>RF TRADE+</h1>
-        </div>
-      </header>
-
       <main className="main">
         <div className="container">
           {/* Cards de Input SIMÉTRICOS */}
@@ -889,7 +879,8 @@ function App() {
               {/* Card Premissas */}
               <div className="input-card">
                 <div className="card-header">
-                  <h3>📊 Premissas Macroeconômicas</h3>
+                  <h1 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 'bold', color: '#1e293b' }}>RF TRADE+</h1>
+                  <h3>Premissas Macroeconômicas</h3>
                   <p>Projeções anuais para o horizonte de análise</p>
                 </div>
                 <div className="card-content">
@@ -941,7 +932,7 @@ function App() {
               {/* Card Ativo Atual */}
               <div className="input-card">
                 <div className="card-header">
-                  <h3>🔵 Ativo Atual</h3>
+                  <h3>Ativo Atual</h3>
                   <p>Características do investimento atual</p>
                 </div>
                 <div className="card-content">
@@ -1048,7 +1039,7 @@ function App() {
               {/* Card Ativo Proposto */}
               <div className="input-card">
                 <div className="card-header">
-                  <h3>🔷 Ativo Proposto</h3>
+                  <h3>Ativo Proposto</h3>
                   <p>Características da nova oportunidade</p>
                 </div>
                 <div className="card-content">
@@ -1119,31 +1110,31 @@ function App() {
                   className={`tab ${abaAtiva === 'resumo' ? 'active' : ''}`}
                   onClick={() => setAbaAtiva('resumo')}
                 >
-                  📊 Resumo Executivo
+                  Resumo Executivo
                 </button>
                 <button 
                   className={`tab ${abaAtiva === 'graficos' ? 'active' : ''}`}
                   onClick={() => setAbaAtiva('graficos')}
                 >
-                  📊 Gráficos
+                  Gráficos
                 </button>
                 <button 
                   className={`tab ${abaAtiva === 'montecarlo' ? 'active' : ''}`}
                   onClick={() => setAbaAtiva('montecarlo')}
                 >
-                  🎲 Análise de Risco
+                  Análise de Risco
                 </button>
                 <button 
                   className={`tab ${abaAtiva === 'cenarios' ? 'active' : ''}`}
                   onClick={() => setAbaAtiva('cenarios')}
                 >
-                  🎯 Cenários Econômicos
+                  Cenários Econômicos
                 </button>
                 <button 
                   className={`tab ${abaAtiva === 'relatorio' ? 'active' : ''}`}
                   onClick={() => setAbaAtiva('relatorio')}
                 >
-                  📝 Relatório Técnico
+                  Relatório Técnico
                 </button>
               </div>
 
@@ -1193,7 +1184,7 @@ function App() {
                     <div className="charts-grid">
                       {/* Gráfico 1 - Evolução do Patrimônio */}
                       <div className="chart-container">
-                        <h4>📈 Evolução do Patrimônio</h4>
+                        <h4>Evolução do Patrimônio</h4>
                         <ResponsiveContainer width="100%" height={300}>
                           <LineChart data={resultados.dadosEvolucao}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -1254,7 +1245,7 @@ function App() {
 
                       {/* Gráfico 2 - Rentabilidade Anualizada */}
                       <div className="chart-container">
-                        <h4>📊 Rentabilidade Anualizada</h4>
+                        <h4>Rentabilidade Anualizada</h4>
                         <ResponsiveContainer width="100%" height={300}>
                           <LineChart data={resultados.dadosRentabilidade}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -1303,7 +1294,7 @@ function App() {
 
                       {/* Gráfico 3 - Vantagem Financeira Acumulada */}
                       <div className="chart-container">
-                        <h4>💰 Vantagem Financeira Acumulada</h4>
+                        <h4>Vantagem Financeira Acumulada</h4>
                         <ResponsiveContainer width="100%" height={300}>
                           <ComposedChart data={resultados.dadosEvolucao}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -1383,7 +1374,7 @@ function App() {
 
                       {/* Gráfico 4 - Análise de Sensibilidade */}
                       <div className="chart-container">
-                        <h4>🎯 Análise de Sensibilidade</h4>
+                        <h4>Análise de Sensibilidade</h4>
                         <ResponsiveContainer width="100%" height={300}>
                           <BarChart data={resultados.dadosSensibilidade}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -1427,7 +1418,7 @@ function App() {
                 {abaAtiva === 'montecarlo' && monteCarlo && (
                   <div className="montecarlo-content">
                     <div className="montecarlo-intro">
-                      <h3>🎲 Análise de Risco: Simulação de Monte Carlo</h3>
+                      <h3>Análise de Risco: Simulação de Monte Carlo</h3>
                       <p>
                         A simulação de Monte Carlo testa sua decisão de investimento em 10.000 cenários econômicos diferentes, 
                         considerando variações aleatórias nas premissas macroeconômicas. Esta análise revela não apenas o 
@@ -1439,17 +1430,17 @@ function App() {
                     <div className="montecarlo-stats">
                       <div className="stats-grid">
                         <div className="stat-item">
-                          <h4>💰 Resultado Esperado</h4>
+                          <h4>Resultado Esperado</h4>
                           <div className="stat-value">{formatarValor(monteCarlo.media)}</div>
                           <div className="stat-desc">Média das simulações</div>
                         </div>
                         <div className="stat-item">
-                          <h4>📊 Resultado Mediano</h4>
+                          <h4>Resultado Mediano</h4>
                           <div className="stat-value">{formatarValor(monteCarlo.mediana)}</div>
                           <div className="stat-desc">50% dos cenários</div>
                         </div>
                         <div className="stat-item">
-                          <h4>📈 Probabilidade de Resultado Positivo</h4>
+                          <h4>Probabilidade de Resultado Positivo</h4>
                           <div className="stat-value">{formatarPercentual(monteCarlo.probabilidadeResultadoPositivo)}</div>
                           <div className="stat-desc">Estratégia proposta melhor</div>
                         </div>
@@ -1476,7 +1467,7 @@ function App() {
                       </div>
 
                       <div className="percentis-analysis">
-                        <h4>📊 Análise de Percentis</h4>
+                        <h4>Análise de Percentis</h4>
                         <div className="percentis-table">
                           <div className="percentil-header">
                             <span className="percentil-label">Percentil</span>
@@ -1743,7 +1734,7 @@ function App() {
                 {abaAtiva === 'relatorio' && (
                   <div className="relatorio-content">
                     <div className="relatorio-header">
-                      <h3>📝 Relatório Técnico de Análise Comparativa</h3>
+                      <h3>Relatório Técnico de Análise Comparativa</h3>
                       <button 
                         className="copy-button"
                         onClick={() => {
