@@ -146,7 +146,11 @@ const gerarDadosGraficos = (ativoAtual, ativoProposto, premissas, horizonte) => 
       premissas,
       ano,
       ativoAtual.tipoReinvestimento,
-      ativoAtual.taxaReinvestimento,
+      {
+        cdi: ativoAtual.taxaReinvestimentoCDI || 100,
+        ipca: ativoAtual.taxaReinvestimentoIPCA || 6,
+        pre: ativoAtual.taxaReinvestimentoPre || 12
+      },
       ativoAtual.aliquotaIR
     );
 
@@ -158,7 +162,7 @@ const gerarDadosGraficos = (ativoAtual, ativoProposto, premissas, horizonte) => 
       premissas,
       ano,
       'cdi',
-      100,
+      { cdi: 100, ipca: 6, pre: 12 },
       ativoProposto.aliquotaIR
     );
 
@@ -196,7 +200,11 @@ const calcularBreakeven = (ativoAtual, ativoProposto, premissas, horizonte) => {
     premissas,
     horizonte,
     ativoAtual.tipoReinvestimento,
-    ativoAtual.taxaReinvestimento,
+    {
+      cdi: ativoAtual.taxaReinvestimentoCDI || 100,
+      ipca: ativoAtual.taxaReinvestimentoIPCA || 6,
+      pre: ativoAtual.taxaReinvestimentoPre || 12
+    },
     ativoAtual.aliquotaIR
   );
 
@@ -216,7 +224,7 @@ const calcularBreakeven = (ativoAtual, ativoProposto, premissas, horizonte) => {
       premissas,
       horizonte,
       'cdi',
-      100,
+      { cdi: 100, ipca: 6, pre: 12 },
       ativoProposto.aliquotaIR
     );
     
@@ -263,7 +271,11 @@ const gerarAnaliseCenarios = (ativoAtual, ativoProposto, premissas, horizonte) =
       premissasVariadas,
       horizonte,
       ativoAtual.tipoReinvestimento,
-      ativoAtual.taxaReinvestimento,
+      {
+        cdi: ativoAtual.taxaReinvestimentoCDI || 100,
+        ipca: ativoAtual.taxaReinvestimentoIPCA || 6,
+        pre: ativoAtual.taxaReinvestimentoPre || 12
+      },
       ativoAtual.aliquotaIR
     );
 
@@ -275,7 +287,7 @@ const gerarAnaliseCenarios = (ativoAtual, ativoProposto, premissas, horizonte) =
       premissasVariadas,
       horizonte,
       'cdi',
-      100,
+      { cdi: 100, ipca: 6, pre: 12 },
       ativoProposto.aliquotaIR
     );
 
@@ -325,7 +337,11 @@ const gerarHeatmapSensibilidade = (ativoAtual, ativoProposto, premissas, horizon
         premissasVariadas,
         horizonte,
         ativoAtual.tipoReinvestimento,
-        ativoAtual.taxaReinvestimento,
+        {
+          cdi: ativoAtual.taxaReinvestimentoCDI || 100,
+          ipca: ativoAtual.taxaReinvestimentoIPCA || 6,
+          pre: ativoAtual.taxaReinvestimentoPre || 12
+        },
         ativoAtual.aliquotaIR
       );
 
@@ -337,7 +353,7 @@ const gerarHeatmapSensibilidade = (ativoAtual, ativoProposto, premissas, horizon
         premissasVariadas,
         horizonte,
         'cdi',
-        100,
+        { cdi: 100, ipca: 6, pre: 12 },
         ativoProposto.aliquotaIR
       );
 
