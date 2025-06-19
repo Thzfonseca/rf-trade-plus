@@ -1039,16 +1039,6 @@ function App() {
                       />
                     </div>
                   </div>
-                  <div className="horizonte-info">
-                    <div className="info-item">
-                      <span className="info-label">Horizonte de Análise:</span>
-                      <span className="info-value">{horizonte} anos</span>
-                    </div>
-                    <div className="info-item">
-                      <span className="info-label">Reinvestimento:</span>
-                      <span className="info-value">CDI 100% após vencimento</span>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
