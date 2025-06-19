@@ -1052,7 +1052,7 @@ function App() {
                           </button>
                         </div>
                         <div id="distribution-chart" className="chart-content">
-                          <ResponsiveContainer width="100%" height={350}>
+                          <ResponsiveContainer width="100%" height={300}>
                             <BarChart data={monteCarlo.distribuicao}>
                               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                               <XAxis 
@@ -1110,13 +1110,13 @@ function App() {
                               const max = monteCarlo.percentis.p95;
                               
                               const range = max - min;
-                              const height = 280;
-                              const width = 200;
+                              const height = 300;
+                              const width = 150; // Largura menor que o de distribuição
                               const centerX = width / 2;
-                              const boxWidth = 50;
+                              const boxWidth = 40;
                               
-                              // Calcular posições Y proporcionais aos dados reais
-                              const margin = 30;
+                              // Calcular posições Y proporcionais aos dados reais (mostra assimetria)
+                              const margin = 40;
                               const chartHeight = height - 2 * margin;
                               
                               const yMax = margin;
@@ -1127,7 +1127,7 @@ function App() {
                               
                               return (
                                 <svg width={width} height={height} className="boxplot-svg">
-                                  {/* Bigode superior */}
+                                  {/* Bigode superior (longo - mostra assimetria) */}
                                   <line 
                                     x1={centerX} y1={yMax} 
                                     x2={centerX} y2={yQ3} 
@@ -1141,19 +1141,18 @@ function App() {
                                     strokeWidth="2" 
                                   />
                                   
-                                  {/* Caixa principal */}
+                                  {/* Caixa principal (altura baseada nos dados reais) */}
                                   <rect 
                                     x={centerX - boxWidth/2} 
                                     y={yQ3} 
                                     width={boxWidth} 
                                     height={yQ1 - yQ3} 
-                                    fill="#64748b" 
-                                    fillOpacity="0.2" 
+                                    fill="rgba(100, 116, 139, 0.15)" 
                                     stroke="#64748b" 
                                     strokeWidth="2"
                                   />
                                   
-                                  {/* Linha da mediana */}
+                                  {/* Linha da mediana (assimétrica - mais próxima do Q1) */}
                                   <line 
                                     x1={centerX - boxWidth/2} 
                                     y1={yMedian} 
@@ -1163,7 +1162,7 @@ function App() {
                                     strokeWidth="3"
                                   />
                                   
-                                  {/* Bigode inferior */}
+                                  {/* Bigode inferior (curto) */}
                                   <line 
                                     x1={centerX} y1={yQ1} 
                                     x2={centerX} y2={yMin} 
@@ -1176,23 +1175,6 @@ function App() {
                                     stroke="#64748b" 
                                     strokeWidth="2" 
                                   />
-                                  
-                                  {/* Labels simplificados */}
-                                  <text x={centerX + 35} y={yMax + 5} fontSize="11" fill="#64748b">
-                                    {(max/1000).toFixed(0)}k
-                                  </text>
-                                  <text x={centerX + 35} y={yQ3 + 5} fontSize="11" fill="#64748b">
-                                    {(q3/1000).toFixed(0)}k
-                                  </text>
-                                  <text x={centerX + 35} y={yMedian + 5} fontSize="11" fill="#1e293b" fontWeight="bold">
-                                    {(median/1000).toFixed(0)}k
-                                  </text>
-                                  <text x={centerX + 35} y={yQ1 + 5} fontSize="11" fill="#64748b">
-                                    {(q1/1000).toFixed(0)}k
-                                  </text>
-                                  <text x={centerX + 35} y={yMin + 5} fontSize="11" fill="#64748b">
-                                    {(min/1000).toFixed(0)}k
-                                  </text>
                                 </svg>
                               );
                             })()}
