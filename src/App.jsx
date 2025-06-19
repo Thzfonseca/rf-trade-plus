@@ -143,74 +143,65 @@ const gerarDadosGraficos = (ativoAtual, ativoProposto, premissas, horizonte) => 
   let valorAtual = ativoAtual.valorInvestido;
   let valorProposto = ativoAtual.valorInvestido;
   
-  for (let ano = 0; ano <= horizonte; ano++) {
-    if (ano === 0) {
-      dadosEvolucao.push({
-        ano: `Ano ${ano}`,
-        atual: valorAtual,
-        proposto: valorProposto
-      });
-      dadosRentabilidade.push({
-        ano: `Ano ${ano}`,
-        atual: 0,
-        proposto: 0
-      });
+  // Adicionar Ano 0 apenas para evolução patrimonial
+  dadosEvolucao.push({
+    ano: `Ano 0`,
+    atual: valorAtual,
+    proposto: valorProposto
+  });
+  
+  for (let ano = 1; ano <= horizonte; ano++) {
+    const indicePremissa = Math.min(ano - 1, premissas.cdi.length - 1);
+    
+    // Calcular valor atual
+    if (ano <= ativoAtual.prazo) {
+      if (ativoAtual.indexador === 'pos') {
+        valorAtual *= (1 + (premissas.cdi[indicePremissa] / 100) * (ativoAtual.taxa / 100));
+      } else if (ativoAtual.indexador === 'ipca') {
+        valorAtual *= (1 + (premissas.ipca[indicePremissa] / 100) + (ativoAtual.taxa / 100));
+      } else if (ativoAtual.indexador === 'pre') {
+        valorAtual *= (1 + ativoAtual.taxa / 100);
+      }
     } else {
-      const indicePremissa = Math.min(ano - 1, premissas.cdi.length - 1);
-      
-      // Calcular valor atual
-      if (ano <= ativoAtual.prazo) {
-        if (ativoAtual.indexador === 'pos') {
-          valorAtual *= (1 + (premissas.cdi[indicePremissa] / 100) * (ativoAtual.taxa / 100));
-        } else if (ativoAtual.indexador === 'ipca') {
-          valorAtual *= (1 + (premissas.ipca[indicePremissa] / 100) + (ativoAtual.taxa / 100));
-        } else if (ativoAtual.indexador === 'pre') {
-          valorAtual *= (1 + ativoAtual.taxa / 100);
-        }
-      } else {
-        // Reinvestimento
-        if (ativoAtual.tipoReinvestimento === 'cdi') {
-          valorAtual *= (1 + (premissas.cdi[indicePremissa] / 100) * (ativoAtual.taxaReinvestimento / 100));
-        } else if (ativoAtual.tipoReinvestimento === 'ipca') {
-          valorAtual *= (1 + (premissas.ipca[indicePremissa] / 100) + (ativoAtual.taxaReinvestimento / 100));
-        } else if (ativoAtual.tipoReinvestimento === 'pre') {
-          valorAtual *= (1 + ativoAtual.taxaReinvestimento / 100);
-        }
+      // Reinvestimento
+      if (ativoAtual.tipoReinvestimento === 'cdi') {
+        valorAtual *= (1 + (premissas.cdi[indicePremissa] / 100) * (ativoAtual.taxaReinvestimento / 100));
+      } else if (ativoAtual.tipoReinvestimento === 'ipca') {
+        valorAtual *= (1 + (premissas.ipca[indicePremissa] / 100) + (ativoAtual.taxaReinvestimento / 100));
+      } else if (ativoAtual.tipoReinvestimento === 'pre') {
+        valorAtual *= (1 + ativoAtual.taxaReinvestimento / 100);
       }
-      
-      // Calcular valor proposto
-      if (ano <= ativoProposto.prazo) {
-        if (ativoProposto.indexador === 'pos') {
-          valorProposto *= (1 + (premissas.cdi[indicePremissa] / 100) * (ativoProposto.taxa / 100));
-        } else if (ativoProposto.indexador === 'ipca') {
-          valorProposto *= (1 + (premissas.ipca[indicePremissa] / 100) + (ativoProposto.taxa / 100));
-        } else if (ativoProposto.indexador === 'pre') {
-          valorProposto *= (1 + ativoProposto.taxa / 100);
-        }
-      } else {
-        // Reinvestimento em CDI 100%
-        valorProposto *= (1 + (premissas.cdi[indicePremissa] / 100));
-      }
-      
-      const rentabilidadeAtual = ((valorAtual / ativoAtual.valorInvestido) - 1) * 100;
-      const rentabilidadeProposta = ((valorProposto / ativoAtual.valorInvestido) - 1) * 100;
-      
-      // Calcular rentabilidade anualizada acumulada
-      const rentabilidadeAnualizadaAtual = ano > 0 ? (Math.pow(valorAtual / ativoAtual.valorInvestido, 1/ano) - 1) * 100 : 0;
-      const rentabilidadeAnualizadaProposta = ano > 0 ? (Math.pow(valorProposto / ativoAtual.valorInvestido, 1/ano) - 1) * 100 : 0;
-      
-      dadosEvolucao.push({
-        ano: `Ano ${ano}`,
-        atual: valorAtual,
-        proposto: valorProposto
-      });
-      
-      dadosRentabilidade.push({
-        ano: `Ano ${ano}`,
-        atual: rentabilidadeAnualizadaAtual,
-        proposto: rentabilidadeAnualizadaProposta
-      });
     }
+    
+    // Calcular valor proposto
+    if (ano <= ativoProposto.prazo) {
+      if (ativoProposto.indexador === 'pos') {
+        valorProposto *= (1 + (premissas.cdi[indicePremissa] / 100) * (ativoProposto.taxa / 100));
+      } else if (ativoProposto.indexador === 'ipca') {
+        valorProposto *= (1 + (premissas.ipca[indicePremissa] / 100) + (ativoProposto.taxa / 100));
+      } else if (ativoProposto.indexador === 'pre') {
+        valorProposto *= (1 + ativoProposto.taxa / 100);
+      }
+    } else {
+      // Reinvestimento em CDI 100%
+      valorProposto *= (1 + (premissas.cdi[indicePremissa] / 100));
+    }
+    
+    // Calcular rentabilidade anualizada acumulada (apenas para anos > 0)
+    const rentabilidadeAnualizadaAtual = (Math.pow(valorAtual / ativoAtual.valorInvestido, 1/ano) - 1) * 100;
+    const rentabilidadeAnualizadaProposta = (Math.pow(valorProposto / ativoAtual.valorInvestido, 1/ano) - 1) * 100;
+    
+    dadosEvolucao.push({
+      ano: `Ano ${ano}`,
+      atual: valorAtual,
+      proposto: valorProposto
+    });
+    
+    dadosRentabilidade.push({
+      ano: `Ano ${ano}`,
+      atual: rentabilidadeAnualizadaAtual,
+      proposto: rentabilidadeAnualizadaProposta
+    });
   }
   
   return { dadosEvolucao, dadosRentabilidade };
@@ -260,6 +251,104 @@ const getTipoReinvestimento = (tipo, taxa) => {
     case 'ipca': return `IPCA + ${taxa}%`;
     default: return 'N/A';
   }
+};
+
+// Função para calcular breakeven
+const calcularBreakeven = (ativoAtual, ativoProposto, premissas, horizonte) => {
+  const valorFinalAtual = calcularValorFuturo(
+    ativoAtual.valorInvestido,
+    ativoAtual.indexador,
+    ativoAtual.taxa,
+    ativoAtual.prazo,
+    premissas,
+    horizonte,
+    ativoAtual.tipoReinvestimento,
+    ativoAtual.taxaReinvestimento,
+    ativoAtual.aliquotaIR
+  );
+
+  // Busca binária para encontrar a taxa de breakeven
+  let taxaMin = 0;
+  let taxaMax = 50;
+  let taxaBreakeven = 0;
+  const tolerancia = 100; // R$ 100 de tolerância
+
+  for (let i = 0; i < 100; i++) {
+    taxaBreakeven = (taxaMin + taxaMax) / 2;
+    
+    const valorFinalProposto = calcularValorFuturo(
+      ativoAtual.valorInvestido,
+      ativoProposto.indexador,
+      taxaBreakeven,
+      ativoProposto.prazo,
+      premissas,
+      horizonte,
+      'cdi',
+      100,
+      ativoProposto.aliquotaIR
+    );
+
+    const diferenca = valorFinalProposto - valorFinalAtual;
+
+    if (Math.abs(diferenca) < tolerancia) {
+      break;
+    } else if (diferenca > 0) {
+      taxaMax = taxaBreakeven;
+    } else {
+      taxaMin = taxaBreakeven;
+    }
+  }
+
+  return taxaBreakeven;
+};
+
+// Função para gerar dados de sensibilidade
+const gerarDadosSensibilidade = (ativoAtual, ativoProposto, premissas, horizonte) => {
+  const dadosSensibilidade = [];
+  const cdiBase = premissas.cdi[0];
+  
+  // Testar variações de -3% a +3% no CDI
+  for (let variacao = -3; variacao <= 3; variacao += 0.5) {
+    const premissasVariadas = {
+      ...premissas,
+      cdi: premissas.cdi.map(taxa => Math.max(0, taxa + variacao))
+    };
+    
+    const valorFinalAtual = calcularValorFuturo(
+      ativoAtual.valorInvestido,
+      ativoAtual.indexador,
+      ativoAtual.taxa,
+      ativoAtual.prazo,
+      premissasVariadas,
+      horizonte,
+      ativoAtual.tipoReinvestimento,
+      ativoAtual.taxaReinvestimento,
+      ativoAtual.aliquotaIR
+    );
+
+    const valorFinalProposto = calcularValorFuturo(
+      ativoAtual.valorInvestido,
+      ativoProposto.indexador,
+      ativoProposto.taxa,
+      ativoProposto.prazo,
+      premissasVariadas,
+      horizonte,
+      'cdi',
+      100,
+      ativoProposto.aliquotaIR
+    );
+
+    const vantagem = valorFinalProposto - valorFinalAtual;
+    const vantagemAnualizada = (Math.pow(valorFinalProposto / valorFinalAtual, 1/horizonte) - 1) * 100;
+
+    dadosSensibilidade.push({
+      cdi: cdiBase + variacao,
+      vantagem: vantagem,
+      vantagemAnualizada: vantagemAnualizada
+    });
+  }
+  
+  return dadosSensibilidade;
 };
 
 // Função para analisar tendência das premissas
@@ -313,6 +402,8 @@ function App() {
 
   const [resultados, setResultados] = useState(null);
   const [monteCarlo, setMonteCarlo] = useState(null);
+  const [breakeven, setBreakeven] = useState(null);
+  const [sensibilidade, setSensibilidade] = useState(null);
   const [abaAtiva, setAbaAtiva] = useState('resumo');
 
   // Calcular horizonte automaticamente
@@ -354,6 +445,12 @@ function App() {
     // Simular Monte Carlo
     const resultadosMonteCarlo = simularMonteCarlo(ativoAtual, ativoProposto, premissas, horizonte);
 
+    // Calcular breakeven
+    const taxaBreakeven = calcularBreakeven(ativoAtual, ativoProposto, premissas, horizonte);
+
+    // Gerar dados de sensibilidade
+    const dadosSensibilidade = gerarDadosSensibilidade(ativoAtual, ativoProposto, premissas, horizonte);
+
     setResultados({
       valorFinalAtual,
       valorFinalProposto,
@@ -365,6 +462,8 @@ function App() {
     });
 
     setMonteCarlo(resultadosMonteCarlo);
+    setBreakeven(taxaBreakeven);
+    setSensibilidade(dadosSensibilidade);
   };
 
   // Função para gerar relatório CORRIGIDO
@@ -698,6 +797,13 @@ Atenciosamente
                 <span className="tab-text">Monte Carlo</span>
               </button>
               <button
+                className={`tab ${abaAtiva === 'sensibilidade' ? 'active' : ''}`}
+                onClick={() => setAbaAtiva('sensibilidade')}
+              >
+                <span className="tab-icon">📊</span>
+                <span className="tab-text">Sensibilidade</span>
+              </button>
+              <button
                 className={`tab ${abaAtiva === 'relatorio' ? 'active' : ''}`}
                 onClick={() => setAbaAtiva('relatorio')}
               >
@@ -732,6 +838,13 @@ Atenciosamente
                       <p className="metric-value">{monteCarlo?.probabilidadeSuperior.toFixed(1)}%</p>
                       <p className="metric-label">Chance de superioridade</p>
                     </div>
+                    {breakeven && (
+                      <div className="metric-card">
+                        <h4>Taxa de Breakeven</h4>
+                        <p className="metric-value">{breakeven.toFixed(2)}%</p>
+                        <p className="metric-label">Taxa necessária para igualar</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1007,6 +1120,90 @@ Atenciosamente
                       <h4>Sharpe Ratio</h4>
                       <p className="stat-value">{monteCarlo.sharpeRatio.toFixed(2)}</p>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {abaAtiva === 'sensibilidade' && sensibilidade && (
+                <div className="sensibilidade-content">
+                  <h3>Análise de Sensibilidade</h3>
+                  
+                  <div className="chart-container">
+                    <h4>Sensibilidade ao CDI</h4>
+                    <ResponsiveContainer width="100%" height={400}>
+                      <LineChart data={sensibilidade}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                        <XAxis 
+                          dataKey="cdi" 
+                          stroke="#64748b" 
+                          fontSize={12}
+                          tickFormatter={(value) => `${value.toFixed(1)}%`}
+                        />
+                        <YAxis 
+                          stroke="#64748b" 
+                          fontSize={11}
+                          tickFormatter={formatarValorMilhoes}
+                          domain={['dataMin * 1.1', 'dataMax * 1.1']}
+                          width={80}
+                        />
+                        <Tooltip 
+                          formatter={(value) => [formatarValorCompleto(value), 'Vantagem']}
+                          labelFormatter={(value) => `CDI: ${value.toFixed(1)}%`}
+                          contentStyle={{
+                            backgroundColor: 'white',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '8px',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                            fontSize: '12px'
+                          }}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="vantagem" 
+                          stroke="#3b82f6" 
+                          strokeWidth={3}
+                          name="Vantagem (R$)"
+                          dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
+                        />
+                        <ReferenceLine 
+                          y={0} 
+                          stroke="#ef4444" 
+                          strokeDasharray="5 5"
+                          label={{ value: "Ponto de Equilíbrio", position: "topLeft", fontSize: 11 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="sensibilidade-explanation">
+                    <div className="explanation-section">
+                      <h4>📊 Interpretação da Análise de Sensibilidade</h4>
+                      <p>
+                        Este gráfico mostra como a vantagem da estratégia proposta varia conforme mudanças na taxa CDI. 
+                        A linha horizontal vermelha representa o ponto de equilíbrio (vantagem = R$ 0).
+                      </p>
+                      <ul>
+                        <li><strong>Acima da linha:</strong> Estratégia proposta é superior</li>
+                        <li><strong>Abaixo da linha:</strong> Estratégia atual é superior</li>
+                        <li><strong>Inclinação:</strong> Indica sensibilidade às mudanças do CDI</li>
+                      </ul>
+                    </div>
+
+                    {breakeven && (
+                      <div className="explanation-section">
+                        <h4>🎯 Taxa de Breakeven: {breakeven.toFixed(2)}%</h4>
+                        <p>
+                          Para que as duas estratégias tenham o mesmo resultado final, o ativo proposto precisaria render 
+                          <strong> {breakeven.toFixed(2)}%</strong> {ativoProposto.indexador === 'pos' ? 'do CDI' : 
+                          ativoProposto.indexador === 'ipca' ? 'acima do IPCA' : 'ao ano'}.
+                        </p>
+                        <p>
+                          <strong>Interpretação:</strong> {breakeven > ativoProposto.taxa ? 
+                            `A taxa atual de ${ativoProposto.taxa}% está ${(breakeven - ativoProposto.taxa).toFixed(2)} p.p. abaixo do breakeven, indicando que a estratégia atual é superior.` :
+                            `A taxa atual de ${ativoProposto.taxa}% está ${(ativoProposto.taxa - breakeven).toFixed(2)} p.p. acima do breakeven, confirmando a vantagem da estratégia proposta.`}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
