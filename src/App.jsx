@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine, BarChart, Bar, PieChart, Pie, Cell, RadialBarChart, RadialBar } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine, BarChart, Bar, PieChart, Pie, Cell, RadialBarChart, RadialBar, AreaChart, Area, ComposedChart } from 'recharts';
 import './App.css';
 
 // Função para calcular valor futuro
@@ -229,10 +229,13 @@ const gerarDadosGraficos = (ativoAtual, ativoProposto, premissas, horizonte) => 
       ativoProposto.aliquotaIR
     );
 
+    const vantagemPercentual = valorPropostoAcum > 0 ? ((valorPropostoAcum - valorAtualAcum) / valorAtualAcum) * 100 : 0;
+    
     dadosEvolucao.push({
       ano: `Ano ${ano}`,
       atual: valorAtualAcum,
       proposto: valorPropostoAcum,
+      vantagemPercentual: vantagemPercentual,
       vencimentoAtual: ano === ativoAtual.prazo,
       vencimentoProposto: ano === ativoProposto.prazo
     });
@@ -1064,7 +1067,7 @@ function App() {
                   className={`tab ${abaAtiva === 'graficos' ? 'active' : ''}`}
                   onClick={() => setAbaAtiva('graficos')}
                 >
-                  📈 Evolução Patrimonial
+                  📊 Gráficos
                 </button>
                 <button 
                   className={`tab ${abaAtiva === 'montecarlo' ? 'active' : ''}`}
@@ -1129,35 +1132,234 @@ function App() {
 
                 {abaAtiva === 'graficos' && (
                   <div className="graficos-content">
+                    {/* Gráfico Principal - Evolução Patrimonial */}
                     <div className="chart-container">
-                      <h4>Evolução Patrimonial</h4>
-                      <ResponsiveContainer width="100%" height={350}>
+                      <h4>📈 Evolução do Patrimônio</h4>
+                      <ResponsiveContainer width="100%" height={400}>
                         <LineChart data={resultados.dadosEvolucao}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="ano" />
-                          <YAxis tickFormatter={formatarValorMilhoes} domain={['dataMin * 0.95', 'dataMax * 1.05']} />
-                          <Tooltip formatter={(value) => formatarValor(value)} />
-                          <Legend />
-                          <Line type="monotone" dataKey="atual" stroke="#64748b" strokeWidth={3} name="Estratégia Atual" />
-                          <Line type="monotone" dataKey="proposto" stroke="#3b82f6" strokeWidth={3} name="Estratégia Proposta" />
-                          <ReferenceLine x={`Ano ${ativoAtual.prazo}`} stroke="#64748b" strokeDasharray="5 5" label="Vencimento Atual" />
-                          <ReferenceLine x={`Ano ${ativoProposto.prazo}`} stroke="#3b82f6" strokeDasharray="5 5" label="Vencimento Proposto" />
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                          <XAxis 
+                            dataKey="ano" 
+                            tick={{ fontSize: 12 }}
+                            axisLine={{ stroke: '#64748b' }}
+                          />
+                          <YAxis 
+                            tickFormatter={formatarValorMilhoes} 
+                            domain={['dataMin * 0.95', 'dataMax * 1.05']}
+                            tick={{ fontSize: 12 }}
+                            axisLine={{ stroke: '#64748b' }}
+                          />
+                          <Tooltip 
+                            formatter={(value, name) => [formatarValor(value), name]}
+                            labelFormatter={(label) => `${label}`}
+                            contentStyle={{
+                              backgroundColor: '#f8fafc',
+                              border: '1px solid #e2e8f0',
+                              borderRadius: '8px',
+                              fontSize: '14px'
+                            }}
+                          />
+                          <Legend 
+                            wrapperStyle={{ fontSize: '14px', paddingTop: '20px' }}
+                          />
+                          <Line 
+                            type="monotone" 
+                            dataKey="atual" 
+                            stroke="#64748b" 
+                            strokeWidth={3} 
+                            name="Estratégia Atual"
+                            dot={{ fill: '#64748b', strokeWidth: 2, r: 4 }}
+                            activeDot={{ r: 6, stroke: '#64748b', strokeWidth: 2 }}
+                          />
+                          <Line 
+                            type="monotone" 
+                            dataKey="proposto" 
+                            stroke="#3b82f6" 
+                            strokeWidth={3} 
+                            name="Estratégia Proposta"
+                            dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
+                            activeDot={{ r: 6, stroke: '#3b82f6', strokeWidth: 2 }}
+                          />
+                          <ReferenceLine 
+                            x={`Ano ${ativoAtual.prazo}`} 
+                            stroke="#ef4444" 
+                            strokeDasharray="8 4" 
+                            strokeWidth={2}
+                            label={{ 
+                              value: "Vencimento Ativo Atual", 
+                              position: "topRight",
+                              style: { fontSize: '12px', fill: '#ef4444' }
+                            }}
+                          />
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
 
+                    {/* Gráfico de Área - Diferença Acumulada */}
                     <div className="chart-container">
-                      <h4>Rentabilidade Anualizada Acumulada</h4>
+                      <h4>💰 Vantagem Financeira Acumulada</h4>
                       <ResponsiveContainer width="100%" height={350}>
-                        <LineChart data={resultados.dadosRentabilidade}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="ano" />
-                          <YAxis tickFormatter={formatarPercentual} domain={['dataMin * 0.95', 'dataMax * 1.05']} />
-                          <Tooltip formatter={(value) => formatarPercentual(value)} />
-                          <Legend />
-                          <Line type="monotone" dataKey="atual" stroke="#64748b" strokeWidth={3} name="Estratégia Atual" />
-                          <Line type="monotone" dataKey="proposto" stroke="#3b82f6" strokeWidth={3} name="Estratégia Proposta" />
-                        </LineChart>
+                        <ComposedChart data={resultados.dadosEvolucao}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                          <XAxis 
+                            dataKey="ano" 
+                            tick={{ fontSize: 12 }}
+                            axisLine={{ stroke: '#64748b' }}
+                          />
+                          <YAxis 
+                            yAxisId="left"
+                            tickFormatter={formatarValorMilhoes}
+                            tick={{ fontSize: 12 }}
+                            axisLine={{ stroke: '#64748b' }}
+                          />
+                          <YAxis 
+                            yAxisId="right"
+                            orientation="right"
+                            tickFormatter={(value) => `${value.toFixed(1)}%`}
+                            tick={{ fontSize: 12 }}
+                            axisLine={{ stroke: '#10b981' }}
+                          />
+                          <Tooltip 
+                            formatter={(value, name, props) => {
+                              if (name === "Vantagem %") {
+                                return [`${value.toFixed(2)}%`, name];
+                              }
+                              return [formatarValor(value), name];
+                            }}
+                            labelFormatter={(label) => `${label}`}
+                            contentStyle={{
+                              backgroundColor: '#f8fafc',
+                              border: '1px solid #e2e8f0',
+                              borderRadius: '8px',
+                              fontSize: '14px'
+                            }}
+                          />
+                          <Legend wrapperStyle={{ fontSize: '14px', paddingTop: '20px' }} />
+                          <Area 
+                            yAxisId="left"
+                            type="monotone" 
+                            dataKey="proposto" 
+                            stroke="#3b82f6" 
+                            fill="url(#gradientProposto)" 
+                            strokeWidth={2}
+                            name="Estratégia Proposta"
+                          />
+                          <Area 
+                            yAxisId="left"
+                            type="monotone" 
+                            dataKey="atual" 
+                            stroke="#64748b" 
+                            fill="url(#gradientAtual)" 
+                            strokeWidth={2}
+                            name="Estratégia Atual"
+                          />
+                          <Line 
+                            yAxisId="right"
+                            type="monotone" 
+                            dataKey="vantagemPercentual" 
+                            stroke="#10b981" 
+                            strokeWidth={3}
+                            dot={{ fill: '#10b981', strokeWidth: 2, r: 3 }}
+                            name="Vantagem %"
+                          />
+                          <defs>
+                            <linearGradient id="gradientProposto" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                              <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.05}/>
+                            </linearGradient>
+                            <linearGradient id="gradientAtual" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#64748b" stopOpacity={0.2}/>
+                              <stop offset="95%" stopColor="#64748b" stopOpacity={0.05}/>
+                            </linearGradient>
+                          </defs>
+                        </ComposedChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    {/* Gráfico de Velocímetro - Vantagem Anualizada */}
+                    <div className="chart-container">
+                      <h4>🎯 Indicador de Vantagem Anualizada</h4>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <RadialBarChart 
+                          cx="50%" 
+                          cy="50%" 
+                          innerRadius="60%" 
+                          outerRadius="90%" 
+                          data={[{
+                            name: 'Vantagem',
+                            value: Math.min(Math.max(resultados.vantagemAnualizada * 10, -50), 50),
+                            fill: resultados.vantagemAnualizada > 0 ? '#10b981' : '#ef4444'
+                          }]}
+                          startAngle={180}
+                          endAngle={0}
+                        >
+                          <RadialBar 
+                            dataKey="value" 
+                            cornerRadius={10} 
+                            fill="#8884d8" 
+                          />
+                          <text 
+                            x="50%" 
+                            y="50%" 
+                            textAnchor="middle" 
+                            dominantBaseline="middle" 
+                            className="progress-label"
+                            style={{ fontSize: '24px', fontWeight: 'bold', fill: '#1e293b' }}
+                          >
+                            {resultados.vantagemAnualizada?.toFixed(1)}%
+                          </text>
+                          <text 
+                            x="50%" 
+                            y="60%" 
+                            textAnchor="middle" 
+                            dominantBaseline="middle" 
+                            style={{ fontSize: '14px', fill: '#64748b' }}
+                          >
+                            ao ano
+                          </text>
+                        </RadialBarChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    {/* Gráfico de Barras - Comparação por Período */}
+                    <div className="chart-container">
+                      <h4>📊 Comparação por Período</h4>
+                      <ResponsiveContainer width="100%" height={350}>
+                        <BarChart data={resultados.dadosEvolucao.filter((_, index) => index % 2 === 0)}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                          <XAxis 
+                            dataKey="ano" 
+                            tick={{ fontSize: 12 }}
+                            axisLine={{ stroke: '#64748b' }}
+                          />
+                          <YAxis 
+                            tickFormatter={formatarValorMilhoes}
+                            tick={{ fontSize: 12 }}
+                            axisLine={{ stroke: '#64748b' }}
+                          />
+                          <Tooltip 
+                            formatter={(value, name) => [formatarValor(value), name]}
+                            contentStyle={{
+                              backgroundColor: '#f8fafc',
+                              border: '1px solid #e2e8f0',
+                              borderRadius: '8px',
+                              fontSize: '14px'
+                            }}
+                          />
+                          <Legend wrapperStyle={{ fontSize: '14px', paddingTop: '20px' }} />
+                          <Bar 
+                            dataKey="atual" 
+                            fill="#64748b" 
+                            name="Estratégia Atual"
+                            radius={[4, 4, 0, 0]}
+                          />
+                          <Bar 
+                            dataKey="proposto" 
+                            fill="#3b82f6" 
+                            name="Estratégia Proposta"
+                            radius={[4, 4, 0, 0]}
+                          />
+                        </BarChart>
                       </ResponsiveContainer>
                     </div>
                   </div>
