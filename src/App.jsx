@@ -871,6 +871,12 @@ function App() {
 
   return (
     <div className="app">
+      <header className="header">
+        <div className="header-content">
+          <h1>RF TRADE+</h1>
+        </div>
+      </header>
+
       <main className="main">
         <div className="container">
           {/* Cards de Input SIMÉTRICOS */}
@@ -879,7 +885,6 @@ function App() {
               {/* Card Premissas */}
               <div className="input-card">
                 <div className="card-header">
-                  <h1 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 'bold', color: '#1e293b' }}>RF TRADE+</h1>
                   <h3>Premissas Macroeconômicas</h3>
                   <p>Projeções anuais para o horizonte de análise</p>
                 </div>
