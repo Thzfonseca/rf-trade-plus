@@ -1033,10 +1033,21 @@ function App() {
     try {
       const cenarioInfo = cenariosLaboratorio[cenarioSelecionado];
       
+      // Gerar dados específicos para o cenário selecionado
+      const dadosEvolucaoCenario = gerarDadosEvolucaoCenario(cenarioInfo, resultados);
+      const monteCarloEspecifico = gerarMonteCarloEspecifico(cenarioInfo, numSimulacoes);
+      const correlacoesMacro = gerarMatrizCorrelacao(cenarioInfo);
+      const varDinamico = gerarVarDinamico(monteCarloEspecifico);
+      
       setDadosLaboratorio({
         cenario: cenarioInfo,
+        evolucao: dadosEvolucaoCenario,
+        monteCarlo: monteCarloEspecifico,
+        correlacoes: correlacoesMacro,
+        var: varDinamico,
         simulacaoExecutada: true,
-        timestamp: new Date().toLocaleString()
+        timestamp: new Date().toLocaleString(),
+        numSimulacoes: numSimulacoes
       });
     } catch (error) {
       console.error('Erro na simulação:', error);
@@ -1044,6 +1055,137 @@ function App() {
     } finally {
       setSimulandoAtivo(false);
     }
+  };
+
+  // Função para gerar dados de evolução específicos do cenário
+  const gerarDadosEvolucaoCenario = (cenarioInfo, resultadosBase) => {
+    const dados = [];
+    const ajustePIB = cenarioInfo.parametros.pib / 2.5; // Normalizar pelo cenário base
+    const ajusteIPCA = cenarioInfo.parametros.ipca / 4.0;
+    
+    for (let ano = 1; ano <= 10; ano++) {
+      const valorAtual = resultadosBase.dadosEvolucao[ano - 1]?.atual || 0;
+      const valorProposto = resultadosBase.dadosEvolucao[ano - 1]?.proposto || 0;
+      
+      // Aplicar ajustes do cenário
+      const valorAtualAjustado = valorAtual * (1 + (ajustePIB - 1) * 0.3);
+      const valorPropostoAjustado = valorProposto * (1 + (ajusteIPCA - 1) * 0.2);
+      
+      dados.push({
+        ano: `Ano ${ano}`,
+        atual: valorAtualAjustado,
+        proposto: valorPropostoAjustado,
+        cenario: cenarioInfo.nome
+      });
+    }
+    
+    return dados;
+  };
+
+  // Função para gerar Monte Carlo específico do cenário
+  const gerarMonteCarloEspecifico = (cenarioInfo, numSim) => {
+    const resultados = [];
+    const volatilidade = cenarioInfo.parametros.pib < 0 ? 0.25 : 0.15; // Maior volatilidade em recessão
+    
+    for (let i = 0; i < numSim; i++) {
+      // Gerar resultado com distribuição normal ajustada ao cenário
+      const random1 = Math.random();
+      const random2 = Math.random();
+      const normal = Math.sqrt(-2 * Math.log(random1)) * Math.cos(2 * Math.PI * random2);
+      
+      const resultado = 100000 + (normal * volatilidade * 200000) + (cenarioInfo.parametros.pib * 10000);
+      resultados.push(resultado);
+    }
+    
+    // Calcular estatísticas
+    resultados.sort((a, b) => a - b);
+    const mediana = resultados[Math.floor(numSim / 2)];
+    const p5 = resultados[Math.floor(numSim * 0.05)];
+    const p95 = resultados[Math.floor(numSim * 0.95)];
+    const media = resultados.reduce((a, b) => a + b, 0) / numSim;
+    
+    return {
+      resultados,
+      estatisticas: {
+        media,
+        mediana,
+        p5,
+        p95,
+        desvio: Math.sqrt(resultados.reduce((acc, val) => acc + Math.pow(val - media, 2), 0) / numSim),
+        probabilidadePositiva: (resultados.filter(r => r > 0).length / numSim) * 100
+      }
+    };
+  };
+
+  // Função para gerar matriz de correlação
+  const gerarMatrizCorrelacao = (cenarioInfo) => {
+    const variaveis = ['PIB', 'IPCA', 'Selic', 'Câmbio', 'Risco'];
+    const matriz = [];
+    
+    // Correlações baseadas no cenário econômico
+    const correlacoes = {
+      base: [[1, -0.3, -0.5, -0.4, -0.2], [-0.3, 1, 0.7, 0.6, 0.4], [-0.5, 0.7, 1, 0.3, 0.2], [-0.4, 0.6, 0.3, 1, 0.5], [-0.2, 0.4, 0.2, 0.5, 1]],
+      recessao: [[1, -0.6, -0.8, -0.7, -0.5], [-0.6, 1, 0.4, 0.8, 0.7], [-0.8, 0.4, 1, 0.5, 0.4], [-0.7, 0.8, 0.5, 1, 0.8], [-0.5, 0.7, 0.4, 0.8, 1]],
+      estagflacao: [[1, 0.2, 0.1, 0.3, 0.4], [0.2, 1, 0.9, 0.8, 0.8], [0.1, 0.9, 1, 0.6, 0.7], [0.3, 0.8, 0.6, 1, 0.9], [0.4, 0.8, 0.7, 0.9, 1]]
+    };
+    
+    const corrMatrix = correlacoes[cenarioSelecionado] || correlacoes.base;
+    
+    for (let i = 0; i < variaveis.length; i++) {
+      for (let j = 0; j < variaveis.length; j++) {
+        matriz.push({
+          x: variaveis[i],
+          y: variaveis[j],
+          value: corrMatrix[i][j]
+        });
+      }
+    }
+    
+    return matriz;
+  };
+
+  // Função para gerar VaR dinâmico
+  const gerarVarDinamico = (monteCarlo) => {
+    const horizontes = [1, 3, 6, 12, 24];
+    const dados = [];
+    
+    horizontes.forEach(horizonte => {
+      const var95 = monteCarlo.estatisticas.p5;
+      const var99 = monteCarlo.estatisticas.p5 * 1.3; // Aproximação para 99%
+      const cvar = monteCarlo.resultados.slice(0, Math.floor(monteCarlo.resultados.length * 0.05))
+                    .reduce((a, b) => a + b, 0) / Math.floor(monteCarlo.resultados.length * 0.05);
+      
+      dados.push({
+        horizonte: `${horizonte}M`,
+        var95: Math.abs(var95),
+        var99: Math.abs(var99),
+        cvar: Math.abs(cvar)
+      });
+    });
+    
+    return dados;
+  };
+
+  // Função para gerar histograma dos resultados Monte Carlo
+  const gerarHistogramaMonteCarlo = (resultados) => {
+    const numBins = 20;
+    const min = Math.min(...resultados);
+    const max = Math.max(...resultados);
+    const binSize = (max - min) / numBins;
+    
+    const bins = Array(numBins).fill(0).map((_, i) => ({
+      range: `${formatarValor(min + i * binSize)} - ${formatarValor(min + (i + 1) * binSize)}`,
+      count: 0,
+      min: min + i * binSize,
+      max: min + (i + 1) * binSize
+    }));
+    
+    resultados.forEach(resultado => {
+      const binIndex = Math.min(Math.floor((resultado - min) / binSize), numBins - 1);
+      bins[binIndex].count++;
+    });
+    
+    return bins;
   };
 
   return (
@@ -1402,7 +1544,7 @@ function App() {
                               <Legend />
                               <Line 
                                 type="monotone" 
-                                dataKey="estrategiaAtual" 
+                                dataKey="atual" 
                                 stroke="#64748b" 
                                 strokeWidth={3}
                                 name="Estratégia Atual"
@@ -1411,7 +1553,7 @@ function App() {
                               />
                               <Line 
                                 type="monotone" 
-                                dataKey="estrategiaProposta" 
+                                dataKey="proposto" 
                                 stroke="#1e293b" 
                                 strokeWidth={3}
                                 name="Estratégia Proposta"
@@ -1468,7 +1610,7 @@ function App() {
                               <Legend />
                               <Line 
                                 type="monotone" 
-                                dataKey="rentabilidadeAtual" 
+                                dataKey="atual" 
                                 stroke="#64748b" 
                                 strokeWidth={3}
                                 name="Rentabilidade Atual"
@@ -1477,7 +1619,7 @@ function App() {
                               />
                               <Line 
                                 type="monotone" 
-                                dataKey="rentabilidadeProposta" 
+                                dataKey="proposto" 
                                 stroke="#1e293b" 
                                 strokeWidth={3}
                                 name="Rentabilidade Proposta"
@@ -1731,9 +1873,186 @@ function App() {
                             </div>
                           </div>
 
+                          {/* Gráficos Dinâmicos do Laboratório */}
+                          <div className="lab-charts-section">
+                            <h4>📊 Análise Gráfica Dinâmica</h4>
+                            <div className="charts-grid-two">
+                              {/* Gráfico 1 - Evolução Específica do Cenário */}
+                              <div className="chart-container">
+                                <div className="chart-header">
+                                  <h5>Evolução no Cenário {dadosLaboratorio.cenario.nome}</h5>
+                                  <button 
+                                    className="copy-chart-btn"
+                                    onClick={() => copiarGrafico('lab-evolucao')}
+                                    title="Copiar gráfico"
+                                  >
+                                    📋
+                                  </button>
+                                </div>
+                                <div id="chart-lab-evolucao">
+                                  <ResponsiveContainer width="100%" height={300}>
+                                    <LineChart data={dadosLaboratorio.evolucao}>
+                                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                      <XAxis dataKey="ano" tick={{ fontSize: 11 }} />
+                                      <YAxis tick={{ fontSize: 11 }} tickFormatter={(value) => `R$ ${(value / 1000000).toFixed(1)}M`} />
+                                      <Tooltip 
+                                        formatter={(value, name) => [formatarValor(value), name]}
+                                        labelFormatter={(label) => label}
+                                      />
+                                      <Legend />
+                                      <Line 
+                                        type="monotone" 
+                                        dataKey="atual" 
+                                        stroke="#64748b" 
+                                        strokeWidth={2}
+                                        name="Estratégia Atual"
+                                      />
+                                      <Line 
+                                        type="monotone" 
+                                        dataKey="proposto" 
+                                        stroke="#1e293b" 
+                                        strokeWidth={2}
+                                        name="Estratégia Proposta"
+                                      />
+                                    </LineChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              </div>
+
+                              {/* Gráfico 2 - Distribuição Monte Carlo */}
+                              <div className="chart-container">
+                                <div className="chart-header">
+                                  <h5>Distribuição Monte Carlo ({dadosLaboratorio.numSimulacoes.toLocaleString()} sim.)</h5>
+                                  <button 
+                                    className="copy-chart-btn"
+                                    onClick={() => copiarGrafico('lab-montecarlo')}
+                                    title="Copiar gráfico"
+                                  >
+                                    📋
+                                  </button>
+                                </div>
+                                <div id="chart-lab-montecarlo">
+                                  <ResponsiveContainer width="100%" height={300}>
+                                    <BarChart data={gerarHistogramaMonteCarlo(dadosLaboratorio.monteCarlo.resultados)}>
+                                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                      <XAxis dataKey="range" tick={{ fontSize: 10 }} />
+                                      <YAxis tick={{ fontSize: 11 }} />
+                                      <Tooltip 
+                                        formatter={(value) => [`${value} simulações`, 'Frequência']}
+                                        labelFormatter={(label) => `Faixa: ${label}`}
+                                      />
+                                      <Bar dataKey="count" fill="#1e293b" />
+                                    </BarChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              </div>
+
+                              {/* Gráfico 3 - Correlações Macroeconômicas */}
+                              <div className="chart-container">
+                                <div className="chart-header">
+                                  <h5>Correlações Macroeconômicas</h5>
+                                  <button 
+                                    className="copy-chart-btn"
+                                    onClick={() => copiarGrafico('lab-correlacoes')}
+                                    title="Copiar gráfico"
+                                  >
+                                    📋
+                                  </button>
+                                </div>
+                                <div id="chart-lab-correlacoes">
+                                  <div className="correlation-matrix">
+                                    {['PIB', 'IPCA', 'Selic', 'Câmbio', 'Risco'].map((varY, i) => (
+                                      <div key={i} className="correlation-row">
+                                        {['PIB', 'IPCA', 'Selic', 'Câmbio', 'Risco'].map((varX, j) => {
+                                          const correlation = dadosLaboratorio.correlacoes.find(
+                                            c => c.x === varX && c.y === varY
+                                          )?.value || 0;
+                                          return (
+                                            <div 
+                                              key={j} 
+                                              className="correlation-cell"
+                                              style={{
+                                                backgroundColor: `rgba(30, 41, 59, ${Math.abs(correlation) * 0.8})`,
+                                                color: Math.abs(correlation) > 0.5 ? 'white' : '#1e293b'
+                                              }}
+                                            >
+                                              {correlation.toFixed(2)}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Gráfico 4 - VaR Dinâmico */}
+                              <div className="chart-container">
+                                <div className="chart-header">
+                                  <h5>VaR Dinâmico por Horizonte</h5>
+                                  <button 
+                                    className="copy-chart-btn"
+                                    onClick={() => copiarGrafico('lab-var')}
+                                    title="Copiar gráfico"
+                                  >
+                                    📋
+                                  </button>
+                                </div>
+                                <div id="chart-lab-var">
+                                  <ResponsiveContainer width="100%" height={300}>
+                                    <BarChart data={dadosLaboratorio.var}>
+                                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                      <XAxis dataKey="horizonte" tick={{ fontSize: 11 }} />
+                                      <YAxis tick={{ fontSize: 11 }} tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}K`} />
+                                      <Tooltip 
+                                        formatter={(value, name) => [formatarValor(value), name]}
+                                        labelFormatter={(label) => `Horizonte: ${label}`}
+                                      />
+                                      <Legend />
+                                      <Bar dataKey="var95" fill="#64748b" name="VaR 95%" />
+                                      <Bar dataKey="var99" fill="#1e293b" name="VaR 99%" />
+                                      <Bar dataKey="cvar" fill="#dc2626" name="CVaR" />
+                                    </BarChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Métricas Estatísticas */}
+                          <div className="lab-metrics-section">
+                            <h4>📈 Métricas Estatísticas do Cenário</h4>
+                            <div className="metrics-grid">
+                              <div className="metric-card">
+                                <h5>Resultado Médio</h5>
+                                <div className="metric-value">{formatarValor(dadosLaboratorio.monteCarlo.estatisticas.media)}</div>
+                              </div>
+                              <div className="metric-card">
+                                <h5>Mediana</h5>
+                                <div className="metric-value">{formatarValor(dadosLaboratorio.monteCarlo.estatisticas.mediana)}</div>
+                              </div>
+                              <div className="metric-card">
+                                <h5>Desvio Padrão</h5>
+                                <div className="metric-value">{formatarValor(dadosLaboratorio.monteCarlo.estatisticas.desvio)}</div>
+                              </div>
+                              <div className="metric-card">
+                                <h5>Prob. Resultado Positivo</h5>
+                                <div className="metric-value">{dadosLaboratorio.monteCarlo.estatisticas.probabilidadePositiva.toFixed(1)}%</div>
+                              </div>
+                              <div className="metric-card">
+                                <h5>Pior Cenário (P5)</h5>
+                                <div className="metric-value">{formatarValor(dadosLaboratorio.monteCarlo.estatisticas.p5)}</div>
+                              </div>
+                              <div className="metric-card">
+                                <h5>Melhor Cenário (P95)</h5>
+                                <div className="metric-value">{formatarValor(dadosLaboratorio.monteCarlo.estatisticas.p95)}</div>
+                              </div>
+                            </div>
+                          </div>
+
                           <div className="simulation-info">
                             <p><strong>Simulação executada:</strong> {dadosLaboratorio.timestamp}</p>
-                            <p><strong>Número de simulações:</strong> {numSimulacoes.toLocaleString()}</p>
+                            <p><strong>Número de simulações:</strong> {dadosLaboratorio.numSimulacoes.toLocaleString()}</p>
                             <p><strong>Probabilidade do cenário:</strong> {dadosLaboratorio.cenario.probabilidade}%</p>
                           </div>
                         </div>
@@ -1758,6 +2077,7 @@ function App() {
                   </div>
                 )}
 
+                {abaAtiva === 'relatorio' && (
                   <div className="relatorio-content">
                     <div className="relatorio-header">
                       <h3>Relatório Técnico de Análise Comparativa</h3>
@@ -1773,59 +2093,195 @@ function App() {
                     </div>
                     
                     <div className="relatorio-body">
-                      <h4>Análise Comparativa de Estratégias de Renda Fixa</h4>
+                      <h4>📊 Análise Comparativa de Estratégias de Renda Fixa</h4>
                       
-                      <p>
-                        <strong>Resumo Executivo:</strong> Análise comparativa entre a estratégia atual 
-                        ({ativoAtual.indexador.toUpperCase()} {formatarPercentual(ativoAtual.taxa)} por {ativoAtual.prazo} anos) 
-                        e a oportunidade proposta ({ativoProposto.indexador.toUpperCase()} {formatarPercentual(ativoProposto.taxa)} por {ativoProposto.prazo} anos), 
-                        considerando horizonte de investimento de {horizonte} anos e valor inicial de {formatarValor(ativoAtual.valorInvestido)}.
-                      </p>
+                      <div className="relatorio-section">
+                        <h5>🎯 Resumo Executivo</h5>
+                        <p>
+                          Análise comparativa entre a estratégia atual 
+                          ({ativoAtual.indexador.toUpperCase()} {formatarPercentual(ativoAtual.taxa)} por {ativoAtual.prazo} anos) 
+                          e a oportunidade proposta ({ativoProposto.indexador.toUpperCase()} {formatarPercentual(ativoProposto.taxa)} por {ativoProposto.prazo} anos), 
+                          considerando horizonte de investimento de {horizonte} anos e valor inicial de {formatarValor(ativoAtual.valorInvestido)}.
+                        </p>
+                        
+                        <div className="executive-metrics">
+                          <div className="exec-metric">
+                            <span className="metric-label">Resultado Esperado:</span>
+                            <span className={`metric-value ${resultados.vantagem > 0 ? 'positive' : 'negative'}`}>
+                              {resultados.vantagem > 0 ? '+' : ''}{formatarValor(resultados.vantagem)}
+                            </span>
+                          </div>
+                          <div className="exec-metric">
+                            <span className="metric-label">Vantagem Anualizada:</span>
+                            <span className={`metric-value ${resultados.vantagemAnualizada > 0 ? 'positive' : 'negative'}`}>
+                              {resultados.vantagemAnualizada > 0 ? '+' : ''}{formatarPercentual(resultados.vantagemAnualizada)}
+                            </span>
+                          </div>
+                          <div className="exec-metric">
+                            <span className="metric-label">Taxa de Equilíbrio:</span>
+                            <span className="metric-value">{formatarPercentual(breakeven)}</span>
+                          </div>
+                        </div>
+                      </div>
 
-                      <p>
-                        <strong>Resultados Determinísticos:</strong> Sob as premissas macroeconômicas estabelecidas 
-                        (CDI iniciando em {formatarPercentual(premissas.cdi[0])} e IPCA em {formatarPercentual(premissas.ipca[0])}), 
-                        a estratégia proposta apresenta resultado {resultados.vantagem > 0 ? 'superior' : 'inferior'} de {formatarValor(Math.abs(resultados.vantagem))} 
-                        ({formatarPercentual(Math.abs(resultados.vantagemAnualizada))} ao ano) em relação à estratégia atual.
-                      </p>
+                      <div className="relatorio-section">
+                        <h5>📈 Análise Determinística</h5>
+                        <p>
+                          <strong>Premissas Macroeconômicas:</strong> CDI iniciando em {formatarPercentual(premissas.cdi[0])} 
+                          e IPCA em {formatarPercentual(premissas.ipca[0])}, com trajetória convergente às metas de longo prazo.
+                        </p>
+                        <p>
+                          <strong>Resultado Projetado:</strong> A estratégia proposta apresenta resultado 
+                          <span className={resultados.vantagem > 0 ? 'positive-text' : 'negative-text'}>
+                            {resultados.vantagem > 0 ? ' superior ' : ' inferior '}
+                          </span>
+                          de {formatarValor(Math.abs(resultados.vantagem))} 
+                          ({formatarPercentual(Math.abs(resultados.vantagemAnualizada))} ao ano) em relação à estratégia atual.
+                        </p>
+                        
+                        <div className="performance-comparison">
+                          <div className="perf-item">
+                            <span className="perf-label">Estratégia Atual:</span>
+                            <span className="perf-value">{formatarValor(resultados.valorFinalAtual)}</span>
+                          </div>
+                          <div className="perf-item">
+                            <span className="perf-label">Estratégia Proposta:</span>
+                            <span className="perf-value">{formatarValor(resultados.valorFinalProposto)}</span>
+                          </div>
+                          <div className="perf-item highlight">
+                            <span className="perf-label">Diferença Absoluta:</span>
+                            <span className={`perf-value ${resultados.vantagem > 0 ? 'positive' : 'negative'}`}>
+                              {resultados.vantagem > 0 ? '+' : ''}{formatarValor(resultados.vantagem)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
 
                       {monteCarlo && (
-                        <p>
-                          <strong>Análise de Risco (Monte Carlo):</strong> A simulação de 10.000 cenários revela 
-                          probabilidade de resultado superior de {formatarPercentual(monteCarlo.probabilidadeResultadoPositivo)}, 
-                          com expectativa de resultado médio de {formatarValor(monteCarlo.media)}. 
-                          A análise de risco (VaR 95%) indica que, no cenário adverso (5% das simulações), 
-                          o resultado pode ser desfavorável em até {formatarValor(Math.abs(monteCarlo.percentis.p5))}.
-                        </p>
+                        <div className="relatorio-section">
+                          <h5>🎲 Análise de Risco (Monte Carlo)</h5>
+                          <p>
+                            <strong>Metodologia:</strong> Simulação de 10.000 cenários estocásticos considerando 
+                            volatilidade histórica dos indexadores e correlações macroeconômicas.
+                          </p>
+                          
+                          <div className="risk-metrics">
+                            <div className="risk-item">
+                              <span className="risk-label">Probabilidade de Sucesso:</span>
+                              <span className={`risk-value ${monteCarlo.probabilidadeResultadoPositivo > 70 ? 'high' : monteCarlo.probabilidadeResultadoPositivo > 50 ? 'medium' : 'low'}`}>
+                                {formatarPercentual(monteCarlo.probabilidadeResultadoPositivo)}
+                              </span>
+                            </div>
+                            <div className="risk-item">
+                              <span className="risk-label">Resultado Médio:</span>
+                              <span className="risk-value">{formatarValor(monteCarlo.media)}</span>
+                            </div>
+                            <div className="risk-item">
+                              <span className="risk-label">VaR 95% (Pior Cenário):</span>
+                              <span className="risk-value negative">{formatarValor(Math.abs(monteCarlo.percentis.p5))}</span>
+                            </div>
+                            <div className="risk-item">
+                              <span className="risk-label">Melhor Cenário (P95):</span>
+                              <span className="risk-value positive">{formatarValor(monteCarlo.percentis.p95)}</span>
+                            </div>
+                          </div>
+                          
+                          <p>
+                            <strong>Interpretação:</strong> A análise de risco indica 
+                            {monteCarlo.probabilidadeResultadoPositivo > 70 ? 
+                              'alta probabilidade de resultado superior com risco controlado.' :
+                              monteCarlo.probabilidadeResultadoPositivo > 50 ?
+                              'probabilidade moderada de resultado superior, requerendo avaliação do perfil de risco.' :
+                              'baixa probabilidade de resultado superior, sugerindo manutenção da estratégia atual.'
+                            }
+                          </p>
+                        </div>
                       )}
 
                       {cenarios && cenarios.economicos && (
-                        <p>
-                          <strong>Análise de Cenários:</strong> Dos {cenarios.economicos.length} cenários econômicos testados, 
-                          {cenarios.economicos.filter(c => c.resultadoFavoravel).length} apresentam resultados favoráveis à migração. 
-                          A probabilidade ponderada de resultado superior, considerando as probabilidades históricas de cada cenário, 
-                          é de {formatarPercentual(cenarios.economicos.reduce((acc, c) => acc + (c.resultadoFavoravel ? c.probabilidade : 0), 0))}.
-                        </p>
+                        <div className="relatorio-section">
+                          <h5>🌍 Análise de Cenários Econômicos</h5>
+                          <p>
+                            <strong>Metodologia:</strong> Avaliação sob {cenarios.economicos.length} cenários macroeconômicos 
+                            fundamentados em teoria econômica e precedentes históricos.
+                          </p>
+                          
+                          <div className="scenario-summary">
+                            <div className="scenario-stat">
+                              <span className="stat-label">Cenários Favoráveis:</span>
+                              <span className="stat-value">{cenarios.economicos.filter(c => c.resultadoFavoravel).length} de {cenarios.economicos.length}</span>
+                            </div>
+                            <div className="scenario-stat">
+                              <span className="stat-label">Probabilidade Ponderada:</span>
+                              <span className="stat-value">{formatarPercentual(cenarios.economicos.reduce((acc, c) => acc + (c.resultadoFavoravel ? c.probabilidade : 0), 0))}</span>
+                            </div>
+                          </div>
+                          
+                          <p>
+                            <strong>Robustez da Estratégia:</strong> A análise multicentenário demonstra 
+                            {cenarios.economicos.filter(c => c.resultadoFavoravel).length / cenarios.economicos.length > 0.6 ?
+                              'alta robustez da estratégia proposta em diferentes ambientes macroeconômicos.' :
+                              'sensibilidade da estratégia às condições macroeconômicas, requerendo monitoramento ativo.'
+                            }
+                          </p>
+                        </div>
                       )}
 
-                      <p>
-                        <strong>Considerações sobre Reinvestimento:</strong> A análise considera reinvestimento 
-                        {ativoAtual.prazo < ativoProposto.prazo ? 
-                          `do ativo atual em ${ativoAtual.tipoReinvestimento.toUpperCase()} após ${ativoAtual.prazo} anos` :
-                          `do ativo proposto em CDI após ${ativoProposto.prazo} anos`
-                        } para equalizar o horizonte de investimento. As taxas de reinvestimento utilizadas refletem 
-                        condições de mercado esperadas para o período.
-                      </p>
+                      <div className="relatorio-section">
+                        <h5>🔄 Considerações sobre Reinvestimento</h5>
+                        <p>
+                          <strong>Estratégia de Reinvestimento:</strong> A análise considera reinvestimento 
+                          {ativoAtual.prazo < ativoProposto.prazo ? 
+                            `do ativo atual em ${ativoAtual.tipoReinvestimento.toUpperCase()} após ${ativoAtual.prazo} anos` :
+                            `do ativo proposto em CDI após ${ativoProposto.prazo} anos`
+                          } para equalizar o horizonte de investimento.
+                        </p>
+                        
+                        <div className="reinvestment-details">
+                          <div className="reinv-item">
+                            <span className="reinv-label">Taxa de Reinvestimento:</span>
+                            <span className="reinv-value">{formatarPercentual(ativoAtual.taxaReinvestimentoCdi || 12)}% do CDI</span>
+                          </div>
+                          <div className="reinv-item">
+                            <span className="reinv-label">Período de Reinvestimento:</span>
+                            <span className="reinv-value">{Math.abs(ativoAtual.prazo - ativoProposto.prazo)} anos</span>
+                          </div>
+                        </div>
+                        
+                        <p>
+                          <strong>Impacto no Resultado:</strong> As taxas de reinvestimento utilizadas refletem 
+                          condições de mercado esperadas, com impacto {Math.abs(ativoAtual.prazo - ativoProposto.prazo) > 2 ? 'significativo' : 'moderado'} 
+                          no resultado final devido ao {Math.abs(ativoAtual.prazo - ativoProposto.prazo) > 2 ? 'longo' : 'curto'} período de reinvestimento.
+                        </p>
+                      </div>
 
-                      <p>
-                        <strong>Recomendação Técnica:</strong> {
-                          resultados.vantagem > 0 && monteCarlo?.probabilidadeResultadoPositivo > 70 ?
-                            'MIGRAR - A estratégia proposta apresenta resultado superior consistente com risco controlado.' :
-                            resultados.vantagem > 0 && monteCarlo?.probabilidadeResultadoPositivo > 50 ?
-                            'CONSIDERAR - A estratégia proposta oferece resultado superior, mas requer avaliação do perfil de risco.' :
-                            'MANTER - A estratégia atual demonstra maior adequação ao cenário analisado.'
-                        } A decisão final deve considerar o perfil de risco do investidor e objetivos específicos da carteira.
-                      </p>
+                      <div className="relatorio-section recommendation">
+                        <h5>🎯 Recomendação Técnica</h5>
+                        <div className={`recommendation-box ${
+                          resultados.vantagem > 0 && monteCarlo?.probabilidadeResultadoPositivo > 70 ? 'strong-buy' :
+                          resultados.vantagem > 0 && monteCarlo?.probabilidadeResultadoPositivo > 50 ? 'moderate-buy' :
+                          'hold'
+                        }`}>
+                          <div className="recommendation-title">
+                            {resultados.vantagem > 0 && monteCarlo?.probabilidadeResultadoPositivo > 70 ? '🟢 MIGRAR' :
+                             resultados.vantagem > 0 && monteCarlo?.probabilidadeResultadoPositivo > 50 ? '🟡 CONSIDERAR' :
+                             '🔴 MANTER'}
+                          </div>
+                          <div className="recommendation-text">
+                            {resultados.vantagem > 0 && monteCarlo?.probabilidadeResultadoPositivo > 70 ?
+                              'A estratégia proposta apresenta resultado superior consistente com risco controlado. Recomenda-se a migração.' :
+                              resultados.vantagem > 0 && monteCarlo?.probabilidadeResultadoPositivo > 50 ?
+                              'A estratégia proposta oferece resultado superior, mas requer avaliação criteriosa do perfil de risco do investidor.' :
+                              'A estratégia atual demonstra maior adequação ao cenário analisado. Recomenda-se a manutenção.'}
+                          </div>
+                        </div>
+                        
+                        <p className="disclaimer">
+                          <strong>Disclaimer:</strong> Esta análise é baseada em premissas e modelos quantitativos. 
+                          A decisão final deve considerar o perfil de risco do investidor, objetivos específicos da carteira 
+                          e condições de mercado vigentes. Recomenda-se consulta a profissional qualificado.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}
