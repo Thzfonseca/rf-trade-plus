@@ -1683,59 +1683,147 @@ function App() {
                     </div>
                     
                     <div className="relatorio-body">
-                      <h4>Análise Comparativa de Estratégias de Renda Fixa</h4>
+                      <h4>📊 Relatório de Análise de Investimento</h4>
                       
-                      <p>
-                        <strong>Resumo Executivo:</strong> Análise comparativa entre a estratégia atual 
-                        ({ativoAtual.indexador.toUpperCase()} {formatarPercentual(ativoAtual.taxa)} por {ativoAtual.prazo} anos) 
-                        e a oportunidade proposta ({ativoProposto.indexador.toUpperCase()} {formatarPercentual(ativoProposto.taxa)} por {ativoProposto.prazo} anos), 
-                        considerando horizonte de investimento de {horizonte} anos e valor inicial de {formatarValor(ativoAtual.valorInvestido)}.
-                      </p>
+                      <div className="relatorio-secao">
+                        <h5>🎯 Contexto da Decisão</h5>
+                        <p>
+                          Você possui atualmente um investimento de <strong>{formatarValor(ativoAtual.valorInvestido)}</strong> aplicado em 
+                          <strong> {ativoAtual.indexador === 'ipca' ? 'IPCA+' : ativoAtual.indexador === 'cdi' ? 'CDI' : 'Pré-fixado'} 
+                          {formatarPercentual(ativoAtual.taxa)}</strong> com vencimento em <strong>{ativoAtual.prazo} anos</strong>. 
+                          Surgiu uma oportunidade de migrar para um novo ativo que oferece 
+                          <strong> {ativoProposto.indexador === 'ipca' ? 'IPCA+' : ativoProposto.indexador === 'cdi' ? 'CDI' : 'Pré-fixado'} 
+                          {formatarPercentual(ativoProposto.taxa)}</strong> por <strong>{ativoProposto.prazo} anos</strong>.
+                        </p>
+                        <p>
+                          A questão central é: <em>"Vale a pena fazer essa migração considerando o cenário econômico atual e futuro?"</em> 
+                          Nossa análise responde essa pergunta através de múltiplas perspectivas.
+                        </p>
+                      </div>
 
-                      <p>
-                        <strong>Resultados Determinísticos:</strong> Sob as premissas macroeconômicas estabelecidas 
-                        (CDI iniciando em {formatarPercentual(premissas.cdi[0])} e IPCA em {formatarPercentual(premissas.ipca[0])}), 
-                        a estratégia proposta apresenta resultado {resultados.vantagem > 0 ? 'superior' : 'inferior'} de {formatarValor(Math.abs(resultados.vantagem))} 
-                        ({formatarPercentual(Math.abs(resultados.vantagemAnualizada))} ao ano) em relação à estratégia atual.
-                      </p>
+                      <div className="relatorio-secao">
+                        <h5>📈 O Que Nossa Análise Revelou</h5>
+                        <p>
+                          Considerando as condições econômicas atuais (CDI em {formatarPercentual(premissas.cdi[0])} e IPCA em {formatarPercentual(premissas.ipca[0])}), 
+                          nossa análise determinística aponta que a migração resultaria em um 
+                          <strong className={resultados.vantagem > 0 ? 'resultado-positivo' : 'resultado-negativo'}>
+                            {resultados.vantagem > 0 ? 'ganho adicional' : 'resultado inferior'} de {formatarValor(Math.abs(resultados.vantagem))}
+                          </strong> ao final do período de {horizonte} anos.
+                        </p>
+                        <p>
+                          Isso representa uma diferença de <strong>{formatarPercentual(Math.abs(resultados.vantagemAnualizada))} ao ano</strong> 
+                          {resultados.vantagem > 0 ? ' em favor da nova estratégia' : ' favorável à manutenção da estratégia atual'}.
+                        </p>
+                      </div>
 
                       {monteCarlo && (
-                        <p>
-                          <strong>Análise de Risco (Monte Carlo):</strong> A simulação de 10.000 cenários revela 
-                          probabilidade de resultado superior de {formatarPercentual(monteCarlo.probabilidadeResultadoPositivo)}, 
-                          com expectativa de resultado médio de {formatarValor(monteCarlo.media)}. 
-                          A análise de risco (VaR 95%) indica que, no cenário adverso (5% das simulações), 
-                          o resultado pode ser desfavorável em até {formatarValor(Math.abs(monteCarlo.percentis.p5))}.
-                        </p>
+                        <div className="relatorio-secao">
+                          <h5>🎲 Testando Diferentes Cenários Futuros</h5>
+                          <p>
+                            Como o futuro é incerto, simulamos <strong>10.000 cenários diferentes</strong> para entender como 
+                            variações nas taxas de juros e inflação poderiam afetar sua decisão.
+                          </p>
+                          <p>
+                            <strong>O resultado?</strong> Em <strong>{formatarPercentual(monteCarlo.probabilidadeResultadoPositivo)}</strong> dos cenários testados, 
+                            a migração se mostrou vantajosa. O resultado médio esperado é de <strong>{formatarValor(monteCarlo.media)}</strong> 
+                            {monteCarlo.media > 0 ? 'de ganho adicional' : 'de resultado inferior'}.
+                          </p>
+                          <p>
+                            <strong>E se as coisas derem errado?</strong> Mesmo no cenário mais adverso (que acontece em apenas 5% das simulações), 
+                            o resultado desfavorável seria limitado a {formatarValor(Math.abs(monteCarlo.percentis.p5))}.
+                          </p>
+                        </div>
                       )}
 
-                      {cenarios && (
-                        <p>
-                          <strong>Análise de Cenários:</strong> Dos {cenarios.length} cenários econômicos testados, 
-                          {cenarios.filter(c => c.resultadoFavoravel).length} apresentam resultados favoráveis à migração. 
-                          A probabilidade ponderada de resultado superior, considerando as probabilidades históricas de cada cenário, 
-                          é de {formatarPercentual(cenarios.reduce((acc, c) => acc + (c.resultadoFavoravel ? c.probabilidade : 0), 0))}.
-                        </p>
+                      {cenarios && cenarios.economicos && (
+                        <div className="relatorio-secao">
+                          <h5>🌍 Análise de Cenários Econômicos</h5>
+                          <p>
+                            Testamos sua decisão contra <strong>{cenarios.economicos.length} cenários econômicos</strong> baseados em precedentes históricos. 
+                            Destes, <strong>{cenarios.economicos.filter(c => c.resultadoFavoravel).length} cenários</strong> indicam que a migração seria vantajosa.
+                          </p>
+                          <p>
+                            Considerando a probabilidade histórica de cada cenário, a chance de resultado superior com a migração é de 
+                            <strong> {formatarPercentual(cenarios.economicos.reduce((acc, c) => acc + (c.resultadoFavoravel ? c.probabilidade : 0), 0))}</strong>.
+                          </p>
+                        </div>
                       )}
 
-                      <p>
-                        <strong>Considerações sobre Reinvestimento:</strong> A análise considera reinvestimento 
-                        {ativoAtual.prazo < ativoProposto.prazo ? 
-                          `do ativo atual em ${ativoAtual.tipoReinvestimento.toUpperCase()} após ${ativoAtual.prazo} anos` :
-                          `do ativo proposto em CDI após ${ativoProposto.prazo} anos`
-                        } para equalizar o horizonte de investimento. As taxas de reinvestimento utilizadas refletem 
-                        condições de mercado esperadas para o período.
-                      </p>
+                      <div className="relatorio-secao">
+                        <h5>⏰ A Questão do Timing</h5>
+                        <p>
+                          {ativoAtual.prazo < ativoProposto.prazo ? 
+                            `Seu ativo atual vence em ${ativoAtual.prazo} anos, enquanto a nova oportunidade tem prazo de ${ativoProposto.prazo} anos. 
+                            Nossa análise considera que você reinvestiria o valor do ativo atual em ${ativoAtual.tipoReinvestimento.toUpperCase()} 
+                            pelos ${ativoProposto.prazo - ativoAtual.prazo} anos restantes.` :
+                            `A nova oportunidade tem prazo menor (${ativoProposto.prazo} anos vs ${ativoAtual.prazo} anos do atual). 
+                            Consideramos reinvestimento em CDI pelo período restante.`
+                          }
+                        </p>
+                        <p>
+                          <strong>Por que isso importa?</strong> O timing do reinvestimento pode ser crucial, especialmente se as taxas de juros 
+                          mudarem significativamente no período.
+                        </p>
+                      </div>
 
-                      <p>
-                        <strong>Recomendação Técnica:</strong> {
-                          resultados.vantagem > 0 && monteCarlo?.probabilidadeResultadoPositivo > 70 ?
-                            'MIGRAR - A estratégia proposta apresenta resultado superior consistente com risco controlado.' :
+                      <div className="relatorio-secao recomendacao-final">
+                        <h5>🎯 Nossa Recomendação</h5>
+                        <div className={`recomendacao-box ${
+                          resultados.vantagem > 50000 ? 'recomendacao-forte-favoravel' : 
+                          resultados.vantagem > 0 && monteCarlo?.probabilidadeResultadoPositivo > 70 ? 'recomendacao-favoravel' :
+                          resultados.vantagem > 0 && monteCarlo?.probabilidadeResultadoPositivo > 50 ? 'recomendacao-moderada' :
+                          'recomendacao-manter'
+                        }`}>
+                          {resultados.vantagem > 50000 ? 
+                            <>
+                              <div className="recomendacao-emoji">🟢</div>
+                              <div className="recomendacao-texto">
+                                <strong>RECOMENDAMOS FORTEMENTE A MIGRAÇÃO</strong>
+                                <p>A vantagem é significativa e consistente em praticamente todos os cenários analisados. 
+                                O risco é baixo e o potencial de ganho é alto.</p>
+                              </div>
+                            </> :
+                            resultados.vantagem > 0 && monteCarlo?.probabilidadeResultadoPositivo > 70 ?
+                            <>
+                              <div className="recomendacao-emoji">🟡</div>
+                              <div className="recomendacao-texto">
+                                <strong>MIGRAÇÃO FAVORÁVEL</strong>
+                                <p>A análise indica vantagem na migração com boa probabilidade de sucesso. 
+                                Considere seu perfil de risco antes da decisão final.</p>
+                              </div>
+                            </> :
                             resultados.vantagem > 0 && monteCarlo?.probabilidadeResultadoPositivo > 50 ?
-                            'CONSIDERAR - A estratégia proposta oferece resultado superior, mas requer avaliação do perfil de risco.' :
-                            'MANTER - A estratégia atual demonstra maior adequação ao cenário analisado.'
-                        } A decisão final deve considerar o perfil de risco do investidor e objetivos específicos da carteira.
-                      </p>
+                            <>
+                              <div className="recomendacao-emoji">🟡</div>
+                              <div className="recomendacao-texto">
+                                <strong>DECISÃO EQUILIBRADA</strong>
+                                <p>Há vantagem na migração, mas com maior incerteza. A decisão pode ser baseada 
+                                em suas preferências pessoais e tolerância ao risco.</p>
+                              </div>
+                            </> :
+                            <>
+                              <div className="recomendacao-emoji">🔴</div>
+                              <div className="recomendacao-texto">
+                                <strong>RECOMENDAMOS MANTER A ESTRATÉGIA ATUAL</strong>
+                                <p>A análise indica que manter o investimento atual é a decisão mais prudente 
+                                considerando o cenário econômico e os riscos envolvidos.</p>
+                              </div>
+                            </>
+                          }
+                        </div>
+                      </div>
+
+                      <div className="relatorio-secao">
+                        <h5>📋 Considerações Finais</h5>
+                        <p>
+                          Esta análise considera exclusivamente os aspectos quantitativos da decisão. Fatores como 
+                          liquidez, garantias, rating da instituição e seus objetivos pessoais também devem ser considerados.
+                        </p>
+                        <p>
+                          <strong>Lembre-se:</strong> Investimentos passados não garantem resultados futuros. 
+                          Esta análise é baseada em projeções e cenários que podem não se materializar.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}
