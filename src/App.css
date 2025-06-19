@@ -1176,3 +1176,35 @@ body {
   white-space: nowrap;
 }
 
+
+/* Charts Grid Layout */
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.charts-grid .chart-container {
+  background: white;
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+}
+
+.charts-grid .chart-container h4 {
+  margin: 0 0 1rem 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1e293b;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .charts-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+
