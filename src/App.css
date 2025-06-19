@@ -85,6 +85,34 @@ body {
   border-color: rgba(148, 163, 184, 0.25);
 }
 
+/* Botão dentro do card */
+.card-button-section {
+  margin-top: auto;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.calculate-btn-card {
+  width: 100%;
+  padding: 1rem 2rem;
+  background: linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.4s ease;
+  box-shadow: 0 4px 12px rgba(30, 41, 59, 0.3);
+}
+
+.calculate-btn-card:hover {
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+  box-shadow: 0 8px 20px rgba(30, 41, 59, 0.4);
+}
+
 .card-header {
   background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
   color: white;
@@ -1311,6 +1339,14 @@ body {
 
 /* Gráficos simplificados */
 .charts-grid-simplified {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+/* Grid para apenas 2 gráficos */
+.charts-grid-two {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 2rem;

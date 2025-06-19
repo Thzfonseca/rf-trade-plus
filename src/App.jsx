@@ -1146,7 +1146,7 @@ function App() {
             {resultados && (
             <>
               {/* Abas */}
-              <div className="tabs">
+              <div className="tabs" style={{ marginTop: '1rem' }}>
                 <button 
                   className={`tab ${abaAtiva === 'resumo' ? 'active' : ''}`}
                   onClick={() => setAbaAtiva('resumo')}
@@ -1222,7 +1222,7 @@ function App() {
 
                 {abaAtiva === 'graficos' && (
                   <div className="graficos-content">
-                    <div className="charts-grid-simplified">
+                    <div className="charts-grid-two">
                       {/* Gráfico 1 - Evolução do Patrimônio */}
                       <div className="chart-container">
                         <div className="chart-header">
@@ -1351,7 +1351,7 @@ function App() {
                   </div>
                 )}
 
-                {abaAtiva === 'risco' && monteCarlo && (
+                {abaAtiva === 'montecarlo' && monteCarlo && (
                   <div className="montecarlo-content">
                     <div className="montecarlo-intro">
                       <h3>Análise de Risco: Simulação de Monte Carlo</h3>
@@ -1743,6 +1743,7 @@ function App() {
             </>
           )}
         </div>
+      </div>
       </main>
 
       <footer className="footer">
