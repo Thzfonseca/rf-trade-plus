@@ -107,6 +107,26 @@ const simularMonteCarloAvancado = (ativoAtual, ativoProposto, premissas, horizon
     p90: vantagens[Math.floor(simulacoes * 0.90)],
     p95: vantagens[Math.floor(simulacoes * 0.95)]
   };
+
+  // Percentis percentuais
+  const percentisPercentuais = {
+    p5: percentuais[Math.floor(simulacoes * 0.05)],
+    p10: percentuais[Math.floor(simulacoes * 0.10)],
+    p25: percentuais[Math.floor(simulacoes * 0.25)],
+    p75: percentuais[Math.floor(simulacoes * 0.75)],
+    p90: percentuais[Math.floor(simulacoes * 0.90)],
+    p95: percentuais[Math.floor(simulacoes * 0.95)]
+  };
+
+  // Percentis anualizados
+  const percentisAnualizados = {
+    p5: (Math.pow(1 + percentisPercentuais.p5/100, 1/horizonte) - 1) * 100,
+    p10: (Math.pow(1 + percentisPercentuais.p10/100, 1/horizonte) - 1) * 100,
+    p25: (Math.pow(1 + percentisPercentuais.p25/100, 1/horizonte) - 1) * 100,
+    p75: (Math.pow(1 + percentisPercentuais.p75/100, 1/horizonte) - 1) * 100,
+    p90: (Math.pow(1 + percentisPercentuais.p90/100, 1/horizonte) - 1) * 100,
+    p95: (Math.pow(1 + percentisPercentuais.p95/100, 1/horizonte) - 1) * 100
+  };
   
   // Análise de probabilidades
   const probabilidadeResultadoPositivo = (vantagens.filter(v => v > 0).length / simulacoes) * 100;
@@ -160,6 +180,8 @@ const simularMonteCarloAvancado = (ativoAtual, ativoProposto, premissas, horizon
     mediana,
     desvio,
     percentis,
+    percentisPercentuais,
+    percentisAnualizados,
     probabilidadeResultadoPositivo,
     probabilidadeResultadoNegativo,
     probabilidadeResultadoSignificativo,
@@ -1217,25 +1239,41 @@ function App() {
                       <div className="percentis-analysis">
                         <h4>📊 Análise de Percentis</h4>
                         <div className="percentis-table">
+                          <div className="percentil-header">
+                            <span className="percentil-label">Percentil</span>
+                            <span className="percentil-value">Ganho Financeiro</span>
+                            <span className="percentil-value">Ganho Percentual</span>
+                            <span className="percentil-value">Ganho % Anualizado</span>
+                          </div>
                           <div className="percentil-row">
                             <span className="percentil-label">5% (Cenário Adverso)</span>
                             <span className="percentil-value">{formatarValor(monteCarlo.percentis.p5)}</span>
+                            <span className="percentil-value">{formatarPercentual(monteCarlo.percentisPercentuais.p5)}</span>
+                            <span className="percentil-value">{formatarPercentual(monteCarlo.percentisAnualizados.p5)}</span>
                           </div>
                           <div className="percentil-row">
                             <span className="percentil-label">25% (Cenário Conservador)</span>
                             <span className="percentil-value">{formatarValor(monteCarlo.percentis.p25)}</span>
+                            <span className="percentil-value">{formatarPercentual(monteCarlo.percentisPercentuais.p25)}</span>
+                            <span className="percentil-value">{formatarPercentual(monteCarlo.percentisAnualizados.p25)}</span>
                           </div>
                           <div className="percentil-row">
                             <span className="percentil-label">50% (Cenário Base)</span>
                             <span className="percentil-value">{formatarValor(monteCarlo.mediana)}</span>
+                            <span className="percentil-value">{formatarPercentual((monteCarlo.mediana / resultados.valorFinalAtual) * 100)}</span>
+                            <span className="percentil-value">{formatarPercentual((Math.pow(1 + (monteCarlo.mediana / resultados.valorFinalAtual), 1/horizonte) - 1) * 100)}</span>
                           </div>
                           <div className="percentil-row">
                             <span className="percentil-label">75% (Cenário Otimista)</span>
                             <span className="percentil-value">{formatarValor(monteCarlo.percentis.p75)}</span>
+                            <span className="percentil-value">{formatarPercentual(monteCarlo.percentisPercentuais.p75)}</span>
+                            <span className="percentil-value">{formatarPercentual(monteCarlo.percentisAnualizados.p75)}</span>
                           </div>
                           <div className="percentil-row">
                             <span className="percentil-label">95% (Cenário Muito Otimista)</span>
                             <span className="percentil-value">{formatarValor(monteCarlo.percentis.p95)}</span>
+                            <span className="percentil-value">{formatarPercentual(monteCarlo.percentisPercentuais.p95)}</span>
+                            <span className="percentil-value">{formatarPercentual(monteCarlo.percentisAnualizados.p95)}</span>
                           </div>
                         </div>
                       </div>

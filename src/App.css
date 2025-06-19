@@ -444,11 +444,25 @@ body {
   space-y: 0.5rem;
 }
 
+.percentil-header {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 2px solid #e5e7eb;
+  font-weight: 600;
+  color: #374151;
+  background-color: #f9fafb;
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+}
+
 .percentil-row {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 1rem;
   align-items: center;
-  padding: 0.5rem 0;
+  padding: 0.75rem 0;
   border-bottom: 1px solid #f3f4f6;
 }
 
@@ -465,6 +479,7 @@ body {
   font-size: 0.875rem;
   font-weight: 600;
   color: #1f2937;
+  text-align: center;
 }
 
 .montecarlo-insights {
