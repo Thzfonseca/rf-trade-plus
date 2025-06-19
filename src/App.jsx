@@ -348,48 +348,127 @@ const gerarDadosSensibilidade = (ativoAtual, ativoProposto, premissas, horizonte
       tipo: 'CDI'
     });
   }
+// Função para gerar análise de cenários
+const gerarAnaliseCenarios = (ativoAtual, ativoProposto, premissas, horizonte) => {
+  const cenarios = [];
+  const cdiBase = premissas.cdi[0];
+  const ipcaBase = premissas.ipca[0];
   
-  // Testar variações de -2% a +2% no IPCA
-  for (let variacao = -2; variacao <= 2; variacao += 0.25) {
-    const premissasVariadasIPCA = {
-      ...premissas,
-      ipca: premissas.ipca.map(taxa => Math.max(0, taxa + variacao))
+  // Definir cenários econômicos específicos
+  const cenariosPredefinidos = [
+    { nome: "Atual", cdi: cdiBase, ipca: ipcaBase, descricao: "Premissas atuais" },
+    { nome: "Otimista", cdi: cdiBase - 1, ipca: ipcaBase - 0.5, descricao: "Queda de juros e inflação controlada" },
+    { nome: "Pessimista", cdi: cdiBase + 2, ipca: ipcaBase + 1.5, descricao: "Alta de juros e pressão inflacionária" },
+    { nome: "Estagflação", cdi: cdiBase + 1, ipca: ipcaBase + 2, descricao: "Juros altos com inflação elevada" },
+    { nome: "Deflação", cdi: cdiBase - 2, ipca: Math.max(0, ipcaBase - 1), descricao: "Queda acentuada de preços" }
+  ];
+  
+  cenariosPredefinidos.forEach(cenario => {
+    const premissasVariadas = {
+      cdi: premissas.cdi.map(() => Math.max(0, cenario.cdi)),
+      ipca: premissas.ipca.map(() => Math.max(0, cenario.ipca))
     };
     
-    const valorFinalAtualIPCA = calcularValorFuturo(
+    const valorFinalAtual = calcularValorFuturo(
       ativoAtual.valorInvestido,
       ativoAtual.indexador,
       ativoAtual.taxa,
       ativoAtual.prazo,
-      premissasVariadasIPCA,
+      premissasVariadas,
       horizonte,
       ativoAtual.tipoReinvestimento,
       ativoAtual.taxaReinvestimento,
       ativoAtual.aliquotaIR
     );
 
-    const valorFinalPropostoIPCA = calcularValorFuturo(
+    const valorFinalProposto = calcularValorFuturo(
       ativoAtual.valorInvestido,
       ativoProposto.indexador,
       ativoProposto.taxa,
       ativoProposto.prazo,
-      premissasVariadasIPCA,
+      premissasVariadas,
       horizonte,
       'cdi',
       100,
       ativoProposto.aliquotaIR
     );
 
-    const vantagemIPCA = valorFinalPropostoIPCA - valorFinalAtualIPCA;
+    const vantagem = valorFinalProposto - valorFinalAtual;
+    const vantagemPercentual = (vantagem / valorFinalAtual) * 100;
+    const vantagemAnualizada = (Math.pow(valorFinalProposto / valorFinalAtual, 1/horizonte) - 1) * 100;
 
-    dadosSensibilidadeIPCA.push({
-      variacao: ipcaBase + variacao,
-      vantagem: vantagemIPCA,
-      tipo: 'IPCA'
+    cenarios.push({
+      nome: cenario.nome,
+      descricao: cenario.descricao,
+      cdi: cenario.cdi,
+      ipca: cenario.ipca,
+      valorFinalAtual,
+      valorFinalProposto,
+      vantagem,
+      vantagemPercentual,
+      vantagemAnualizada,
+      favoravel: vantagem > 0
     });
-  }
+  });
   
-  return { dadosSensibilidadeCDI, dadosSensibilidadeIPCA };
+  return cenarios;
+};
+
+// Função para gerar dados de heatmap
+const gerarHeatmapSensibilidade = (ativoAtual, ativoProposto, premissas, horizonte) => {
+  const dadosHeatmap = [];
+  const cdiBase = premissas.cdi[0];
+  const ipcaBase = premissas.ipca[0];
+  
+  // Criar grid de variações
+  const variacoesCDI = [-2, -1, 0, 1, 2];
+  const variacoesIPCA = [-1, -0.5, 0, 0.5, 1];
+  
+  variacoesCDI.forEach(varCDI => {
+    variacoesIPCA.forEach(varIPCA => {
+      const premissasVariadas = {
+        cdi: premissas.cdi.map(() => Math.max(0, cdiBase + varCDI)),
+        ipca: premissas.ipca.map(() => Math.max(0, ipcaBase + varIPCA))
+      };
+      
+      const valorFinalAtual = calcularValorFuturo(
+        ativoAtual.valorInvestido,
+        ativoAtual.indexador,
+        ativoAtual.taxa,
+        ativoAtual.prazo,
+        premissasVariadas,
+        horizonte,
+        ativoAtual.tipoReinvestimento,
+        ativoAtual.taxaReinvestimento,
+        ativoAtual.aliquotaIR
+      );
+
+      const valorFinalProposto = calcularValorFuturo(
+        ativoAtual.valorInvestido,
+        ativoProposto.indexador,
+        ativoProposto.taxa,
+        ativoProposto.prazo,
+        premissasVariadas,
+        horizonte,
+        'cdi',
+        100,
+        ativoProposto.aliquotaIR
+      );
+
+      const vantagem = valorFinalProposto - valorFinalAtual;
+      const vantagemAnualizada = (Math.pow(valorFinalProposto / valorFinalAtual, 1/horizonte) - 1) * 100;
+
+      dadosHeatmap.push({
+        cdi: cdiBase + varCDI,
+        ipca: ipcaBase + varIPCA,
+        vantagem,
+        vantagemAnualizada,
+        favoravel: vantagem > 0
+      });
+    });
+  });
+  
+  return dadosHeatmap;
 };
 
 // Função para analisar tendência das premissas
@@ -444,7 +523,8 @@ function App() {
   const [resultados, setResultados] = useState(null);
   const [monteCarlo, setMonteCarlo] = useState(null);
   const [breakeven, setBreakeven] = useState(null);
-  const [sensibilidade, setSensibilidade] = useState(null);
+  const [cenarios, setCenarios] = useState(null);
+  const [heatmap, setHeatmap] = useState(null);
   const [abaAtiva, setAbaAtiva] = useState('resumo');
 
   // Calcular horizonte automaticamente
@@ -489,8 +569,11 @@ function App() {
     // Calcular breakeven
     const taxaBreakeven = calcularBreakeven(ativoAtual, ativoProposto, premissas, horizonte);
 
-    // Gerar dados de sensibilidade
-    const { dadosSensibilidadeCDI, dadosSensibilidadeIPCA } = gerarDadosSensibilidade(ativoAtual, ativoProposto, premissas, horizonte);
+    // Gerar análise de cenários
+    const analiseCenarios = gerarAnaliseCenarios(ativoAtual, ativoProposto, premissas, horizonte);
+    
+    // Gerar heatmap de sensibilidade
+    const dadosHeatmap = gerarHeatmapSensibilidade(ativoAtual, ativoProposto, premissas, horizonte);
 
     setResultados({
       valorFinalAtual,
@@ -504,7 +587,8 @@ function App() {
 
     setMonteCarlo(resultadosMonteCarlo);
     setBreakeven(taxaBreakeven);
-    setSensibilidade({ dadosSensibilidadeCDI, dadosSensibilidadeIPCA });
+    setCenarios(analiseCenarios);
+    setHeatmap(dadosHeatmap);
   };
 
   // Função para gerar relatório CORRIGIDO
@@ -838,11 +922,11 @@ Atenciosamente
                 <span className="tab-text">Monte Carlo</span>
               </button>
               <button
-                className={`tab ${abaAtiva === 'sensibilidade' ? 'active' : ''}`}
-                onClick={() => setAbaAtiva('sensibilidade')}
+                className={`tab ${abaAtiva === 'cenarios' ? 'active' : ''}`}
+                onClick={() => setAbaAtiva('cenarios')}
               >
-                <span className="tab-icon">📊</span>
-                <span className="tab-text">Sensibilidade</span>
+                <span className="tab-icon">🎯</span>
+                <span className="tab-text">Cenários</span>
               </button>
               <button
                 className={`tab ${abaAtiva === 'relatorio' ? 'active' : ''}`}
@@ -1165,213 +1249,160 @@ Atenciosamente
                 </div>
               )}
 
-              {abaAtiva === 'sensibilidade' && sensibilidade && (
-                <div className="sensibilidade-content">
-                  <h3>Análise de Sensibilidade</h3>
+              {abaAtiva === 'cenarios' && cenarios && heatmap && (
+                <div className="cenarios-content">
+                  <h3>Análise de Cenários Econômicos</h3>
                   
-                  <div className="chart-container">
-                    <h4>Sensibilidade ao CDI e IPCA</h4>
-                    <ResponsiveContainer width="100%" height={450}>
-                      <LineChart>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                        <XAxis 
-                          type="number"
-                          dataKey="variacao"
-                          stroke="#64748b" 
-                          fontSize={12}
-                          tickFormatter={(value) => `${value.toFixed(1)}%`}
-                          domain={['dataMin', 'dataMax']}
-                        />
-                        <YAxis 
-                          stroke="#64748b" 
-                          fontSize={11}
-                          tickFormatter={formatarValorMilhoes}
-                          domain={['dataMin * 1.1', 'dataMax * 1.1']}
-                          width={80}
-                        />
-                        <Tooltip 
-                          formatter={(value, name) => [
-                            formatarValorCompleto(value), 
-                            name === 'CDI' ? 'Vantagem (CDI)' : 'Vantagem (IPCA)'
-                          ]}
-                          labelFormatter={(value) => `Taxa: ${value.toFixed(1)}%`}
-                          contentStyle={{
-                            backgroundColor: 'white',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '8px',
-                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                            fontSize: '12px'
-                          }}
-                        />
-                        <Legend />
-                        <Line 
-                          data={sensibilidade.dadosSensibilidadeCDI}
-                          type="monotone" 
-                          dataKey="vantagem" 
-                          stroke="#3b82f6" 
-                          strokeWidth={3}
-                          name="CDI"
-                          dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
-                        />
-                        <Line 
-                          data={sensibilidade.dadosSensibilidadeIPCA}
-                          type="monotone" 
-                          dataKey="vantagem" 
-                          stroke="#10b981" 
-                          strokeWidth={3}
-                          name="IPCA"
-                          dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }}
-                        />
-                        <ReferenceLine 
-                          y={0} 
-                          stroke="#ef4444" 
-                          strokeDasharray="5 5"
-                          label={{ value: "Ponto de Equilíbrio", position: "topLeft", fontSize: 11 }}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
+                  {/* Tabela de Cenários */}
+                  <div className="cenarios-table-container">
+                    <h4>Resultados por Cenário</h4>
+                    <div className="cenarios-table">
+                      <div className="table-header">
+                        <div>Cenário</div>
+                        <div>CDI</div>
+                        <div>IPCA</div>
+                        <div>Vantagem</div>
+                        <div>Anualizada</div>
+                        <div>Status</div>
+                      </div>
+                      {cenarios.map((cenario, index) => (
+                        <div key={index} className={`table-row ${cenario.favoravel ? 'favoravel' : 'desfavoravel'}`}>
+                          <div className="cenario-nome">
+                            <strong>{cenario.nome}</strong>
+                            <span className="cenario-desc">{cenario.descricao}</span>
+                          </div>
+                          <div>{cenario.cdi.toFixed(1)}%</div>
+                          <div>{cenario.ipca.toFixed(1)}%</div>
+                          <div>{formatarValorCompleto(cenario.vantagem)}</div>
+                          <div>{cenario.vantagemAnualizada.toFixed(2)}% a.a.</div>
+                          <div className={`status ${cenario.favoravel ? 'favoravel' : 'desfavoravel'}`}>
+                            {cenario.favoravel ? '✅ Favorável' : '❌ Desfavorável'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
-                  <div className="sensibilidade-explanation">
-                    <div className="explanation-section">
-                      <h4>🎯 O que é Análise de Sensibilidade?</h4>
-                      <p>
-                        A análise de sensibilidade é como um "teste de estresse" para sua estratégia de investimento. 
-                        Ela responde à pergunta: <strong>"E se as premissas econômicas mudarem?"</strong>
-                      </p>
-                      <p>
-                        Imagine que você está planejando uma viagem e quer saber como mudanças no preço da gasolina 
-                        afetariam seu orçamento. A análise de sensibilidade faz algo similar com seus investimentos, 
-                        testando como variações no CDI e IPCA impactam seus resultados.
-                      </p>
+                  {/* Heatmap Visual */}
+                  <div className="heatmap-container">
+                    <h4>Mapa de Sensibilidade (CDI vs IPCA)</h4>
+                    <div className="heatmap-grid">
+                      <div className="heatmap-labels-y">
+                        <div className="label-title">IPCA</div>
+                        {[1, 0.5, 0, -0.5, -1].map(val => (
+                          <div key={val} className="label-y">
+                            {(premissas.ipca[0] + val).toFixed(1)}%
+                          </div>
+                        ))}
+                      </div>
+                      <div className="heatmap-main">
+                        <div className="heatmap-labels-x">
+                          {[-2, -1, 0, 1, 2].map(val => (
+                            <div key={val} className="label-x">
+                              {(premissas.cdi[0] + val).toFixed(1)}%
+                            </div>
+                          ))}
+                        </div>
+                        <div className="heatmap-cells">
+                          {[1, 0.5, 0, -0.5, -1].map(ipcaVar => (
+                            <div key={ipcaVar} className="heatmap-row">
+                              {[-2, -1, 0, 1, 2].map(cdiVar => {
+                                const cell = heatmap.find(h => 
+                                  Math.abs(h.cdi - (premissas.cdi[0] + cdiVar)) < 0.1 && 
+                                  Math.abs(h.ipca - (premissas.ipca[0] + ipcaVar)) < 0.1
+                                );
+                                const intensity = cell ? Math.abs(cell.vantagemAnualizada) / 5 : 0;
+                                const isPositive = cell ? cell.favoravel : false;
+                                return (
+                                  <div 
+                                    key={`${cdiVar}-${ipcaVar}`}
+                                    className={`heatmap-cell ${isPositive ? 'positive' : 'negative'}`}
+                                    style={{
+                                      opacity: Math.min(0.3 + intensity * 0.7, 1)
+                                    }}
+                                    title={cell ? `Vantagem: ${cell.vantagemAnualizada.toFixed(2)}% a.a.` : ''}
+                                  >
+                                    {cell ? cell.vantagemAnualizada.toFixed(1) : '0.0'}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="heatmap-labels-x-title">CDI</div>
+                      </div>
                     </div>
+                    <div className="heatmap-legend">
+                      <div className="legend-item">
+                        <div className="legend-color positive"></div>
+                        <span>Estratégia Proposta Favorável</span>
+                      </div>
+                      <div className="legend-item">
+                        <div className="legend-color negative"></div>
+                        <span>Estratégia Atual Favorável</span>
+                      </div>
+                    </div>
+                  </div>
 
-                    <div className="explanation-section">
-                      <h4>📊 Como Interpretar o Gráfico</h4>
-                      <div className="interpretation-grid">
-                        <div className="interpretation-item">
-                          <h5>🔵 Linha Azul (CDI)</h5>
-                          <p>
-                            Mostra como a vantagem da estratégia proposta muda conforme o CDI varia. 
-                            <strong>Exemplo prático:</strong> Se o CDI subir de {premissas.cdi[0]}% para {(premissas.cdi[0] + 2).toFixed(1)}%, 
-                            sua vantagem {sensibilidade.dadosSensibilidadeCDI?.[sensibilidade.dadosSensibilidadeCDI.length - 1]?.vantagem > 
-                            sensibilidade.dadosSensibilidadeCDI?.[Math.floor(sensibilidade.dadosSensibilidadeCDI.length / 2)]?.vantagem ? 'aumenta' : 'diminui'}.
+                  {/* Análise Baseada nos Dados */}
+                  <div className="cenarios-analysis">
+                    <div className="analysis-section">
+                      <h4>📊 Interpretação dos Resultados</h4>
+                      <div className="analysis-grid">
+                        <div className="analysis-card">
+                          <h5>Cenários Favoráveis</h5>
+                          <p className="analysis-number">
+                            {cenarios.filter(c => c.favoravel).length} de {cenarios.length} cenários
+                          </p>
+                          <p className="analysis-desc">
+                            {cenarios.filter(c => c.favoravel).length >= 3 ? 
+                              'Estratégia robusta na maioria dos cenários' : 
+                              'Estratégia sensível a mudanças econômicas'}
                           </p>
                         </div>
-                        <div className="interpretation-item">
-                          <h5>🟢 Linha Verde (IPCA)</h5>
-                          <p>
-                            Mostra como mudanças na inflação afetam sua estratégia. 
-                            <strong>Cenário real:</strong> Se a inflação disparar para {(premissas.ipca[0] + 1.5).toFixed(1)}% (como em 2021), 
-                            ativos indexados ao IPCA se tornam {ativoProposto.indexador === 'ipca' ? 'mais' : 'menos'} atrativos.
+                        <div className="analysis-card">
+                          <h5>Melhor Cenário</h5>
+                          <p className="analysis-number">
+                            {formatarValorCompleto(Math.max(...cenarios.map(c => c.vantagem)))}
+                          </p>
+                          <p className="analysis-desc">
+                            {cenarios.find(c => c.vantagem === Math.max(...cenarios.map(c => c.vantagem)))?.nome}
+                          </p>
+                        </div>
+                        <div className="analysis-card">
+                          <h5>Pior Cenário</h5>
+                          <p className="analysis-number">
+                            {formatarValorCompleto(Math.min(...cenarios.map(c => c.vantagem)))}
+                          </p>
+                          <p className="analysis-desc">
+                            {cenarios.find(c => c.vantagem === Math.min(...cenarios.map(c => c.vantagem)))?.nome}
                           </p>
                         </div>
                       </div>
                     </div>
 
-                    <div className="explanation-section">
-                      <h4>🏦 Cenários Econômicos Reais</h4>
-                      <div className="scenarios-grid">
-                        <div className="scenario-card">
-                          <h5>📈 Cenário de Alta de Juros (2021-2022)</h5>
-                          <p>
-                            <strong>O que aconteceu:</strong> CDI subiu de 2% para 13,75% em 18 meses.<br/>
-                            <strong>Impacto:</strong> Investimentos pós-fixados se tornaram muito mais atrativos que pré-fixados.<br/>
-                            <strong>Lição:</strong> Em ciclos de alta, flexibilidade é valiosa.
-                          </p>
-                        </div>
-                        <div className="scenario-card">
-                          <h5>📉 Cenário de Queda de Juros (2016-2020)</h5>
-                          <p>
-                            <strong>O que aconteceu:</strong> CDI caiu de 14% para 2% gradualmente.<br/>
-                            <strong>Impacto:</strong> Quem travou taxas altas em pré-fixados ganhou muito.<br/>
-                            <strong>Lição:</strong> Em ciclos de queda, travar taxas pode ser vantajoso.
-                          </p>
-                        </div>
-                        <div className="scenario-card">
-                          <h5>🔥 Cenário de Alta Inflação (2021)</h5>
-                          <p>
-                            <strong>O que aconteceu:</strong> IPCA saltou de 4% para 10% em poucos meses.<br/>
-                            <strong>Impacto:</strong> IPCA+ protegeu o poder de compra, pré-fixados perderam valor real.<br/>
-                            <strong>Lição:</strong> Inflação alta favorece ativos indexados.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="explanation-section">
-                      <h4>🎯 Aplicação Prática na Sua Estratégia</h4>
-                      <div className="practical-analysis">
-                        <h5>📋 Checklist de Decisão:</h5>
-                        <div className="checklist">
-                          <div className="checklist-item">
-                            <strong>1. Robustez:</strong> Sua estratégia funciona bem em diferentes cenários? 
-                            {sensibilidade.dadosSensibilidadeCDI?.filter(d => d.vantagem > 0).length > 
-                             sensibilidade.dadosSensibilidadeCDI?.length * 0.7 ? 
-                             '✅ Sim, é robusta na maioria dos cenários.' : 
-                             '⚠️ Cuidado, é sensível a mudanças.'}
+                    <div className="analysis-section">
+                      <h4>🎯 Insights Específicos dos Seus Dados</h4>
+                      <div className="insights-list">
+                        {cenarios.map((cenario, index) => (
+                          <div key={index} className={`insight-item ${cenario.favoravel ? 'positive' : 'negative'}`}>
+                            <strong>{cenario.nome}:</strong> {cenario.descricao} resulta em {cenario.favoravel ? 'vantagem' : 'desvantagem'} de {formatarValorCompleto(Math.abs(cenario.vantagem))} ({Math.abs(cenario.vantagemAnualizada).toFixed(2)}% a.a.)
                           </div>
-                          <div className="checklist-item">
-                            <strong>2. Pior cenário:</strong> Qual a maior perda possível? 
-                            {Math.min(...(sensibilidade.dadosSensibilidadeCDI?.map(d => d.vantagem) || [0])) < -50000 ? 
-                             '🔴 Risco alto (>R$ 50K de perda)' : 
-                             '🟡 Risco moderado'}
-                          </div>
-                          <div className="checklist-item">
-                            <strong>3. Melhor cenário:</strong> Qual o maior ganho possível? 
-                            {formatarValorCompleto(Math.max(...(sensibilidade.dadosSensibilidadeCDI?.map(d => d.vantagem) || [0])))}
-                          </div>
-                        </div>
+                        ))}
                       </div>
                     </div>
 
                     {breakeven && (
-                      <div className="explanation-section">
-                        <h4>🎯 Taxa de Breakeven: {breakeven.toFixed(2)}%</h4>
+                      <div className="analysis-section">
+                        <h4>⚖️ Ponto de Equilíbrio</h4>
                         <p>
-                          <strong>O que significa:</strong> Para que as duas estratégias tenham o mesmo resultado final, 
-                          o ativo proposto precisaria render <strong>{breakeven.toFixed(2)}%</strong> {ativoProposto.indexador === 'pos' ? 'do CDI' : 
-                          ativoProposto.indexador === 'ipca' ? 'acima do IPCA' : 'ao ano'}.
+                          Considerando os cenários testados, sua estratégia proposta precisa render <strong>{breakeven.toFixed(2)}%</strong> para igualar a atual. 
+                          {breakeven > ativoProposto.taxa ? 
+                            ` Como a taxa atual é ${ativoProposto.taxa}%, você está ${(breakeven - ativoProposto.taxa).toFixed(2)} p.p. abaixo do necessário.` :
+                            ` Como a taxa atual é ${ativoProposto.taxa}%, você tem uma margem de ${(ativoProposto.taxa - breakeven).toFixed(2)} p.p. de segurança.`}
                         </p>
-                        <div className="breakeven-analysis">
-                          <p>
-                            <strong>Análise atual:</strong> {breakeven > ativoProposto.taxa ? 
-                              `A taxa atual de ${ativoProposto.taxa}% está ${(breakeven - ativoProposto.taxa).toFixed(2)} p.p. abaixo do breakeven. 
-                               Isso significa que, nas premissas atuais, a estratégia atual é superior. Para a estratégia proposta ser vantajosa, 
-                               você precisaria conseguir uma taxa ${(breakeven - ativoProposto.taxa).toFixed(2)} p.p. maior.` :
-                              `A taxa atual de ${ativoProposto.taxa}% está ${(ativoProposto.taxa - breakeven).toFixed(2)} p.p. acima do breakeven. 
-                               Isso confirma a vantagem da estratégia proposta. Mesmo se a taxa caísse ${(ativoProposto.taxa - breakeven).toFixed(2)} p.p., 
-                               ainda seria equivalente à estratégia atual.`}
-                          </p>
-                          <p>
-                            <strong>Margem de segurança:</strong> {Math.abs(ativoProposto.taxa - breakeven).toFixed(2)} pontos percentuais 
-                            {ativoProposto.taxa > breakeven ? '(favorável)' : '(desfavorável)'}
-                          </p>
-                        </div>
                       </div>
                     )}
-
-                    <div className="explanation-section">
-                      <h4>💡 Dicas de Gestão de Risco</h4>
-                      <div className="risk-tips">
-                        <div className="tip-item">
-                          <strong>🔄 Monitoramento:</strong> Acompanhe mensalmente as atas do COPOM e relatórios de inflação. 
-                          Se as premissas mudarem significativamente, reavalie sua estratégia.
-                        </div>
-                        <div className="tip-item">
-                          <strong>📊 Diversificação:</strong> Considere dividir entre diferentes indexadores para reduzir 
-                          dependência de um único fator econômico.
-                        </div>
-                        <div className="tip-item">
-                          <strong>⏰ Timing:</strong> Em momentos de alta incerteza econômica, prefira prazos menores 
-                          para manter flexibilidade.
-                        </div>
-                        <div className="tip-item">
-                          <strong>🎯 Objetivos:</strong> Alinhe a escolha com seus objetivos: proteção inflacionária (IPCA+), 
-                          aproveitamento de juros altos (pós-fixado) ou previsibilidade (pré-fixado).
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 </div>
               )}
