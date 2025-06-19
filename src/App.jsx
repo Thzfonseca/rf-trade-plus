@@ -1098,11 +1098,103 @@ function App() {
                           </div>
                         </div>
                       </div>
+
+                      {/* Gráfico de Assimetria de Risco */}
+                      <div className="chart-container">
+                        <div className="chart-header">
+                          <h4>Assimetria de Risco</h4>
+                          <button 
+                            className="copy-chart-btn"
+                            onClick={() => copiarGrafico('assimetria')}
+                            title="Copiar gráfico"
+                          >
+                            📋
+                          </button>
+                        </div>
+                        <div id="chart-assimetria">
+                          <ResponsiveContainer width="100%" height={300}>
+                            <BarChart 
+                              data={[
+                                { cenario: 'Adverso (5%)', valor: monteCarlo.percentis.p5, label: 'Cenário Adverso' },
+                                { cenario: 'Conservador (25%)', valor: monteCarlo.percentis.p25, label: 'Cenário Conservador' },
+                                { cenario: 'Base (50%)', valor: monteCarlo.mediana, label: 'Cenário Base' },
+                                { cenario: 'Otimista (75%)', valor: monteCarlo.percentis.p75, label: 'Cenário Otimista' },
+                                { cenario: 'Muito Otimista (95%)', valor: monteCarlo.percentis.p95, label: 'Cenário Muito Otimista' }
+                              ]}
+                              layout="horizontal"
+                              margin={{ top: 20, right: 30, left: 120, bottom: 20 }}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                              <XAxis 
+                                type="number" 
+                                tickFormatter={formatarValor}
+                                stroke="#64748b"
+                              />
+                              <YAxis 
+                                type="category" 
+                                dataKey="cenario" 
+                                width={100}
+                                stroke="#64748b"
+                              />
+                              <Tooltip 
+                                formatter={(value, name) => [formatarValor(value), 'Resultado']}
+                                labelStyle={{ color: '#1e293b' }}
+                                contentStyle={{ 
+                                  backgroundColor: '#ffffff', 
+                                  border: '1px solid #e2e8f0',
+                                  borderRadius: '8px'
+                                }}
+                              />
+                              <ReferenceLine x={0} stroke="#64748b" strokeDasharray="2 2" />
+                              <Bar 
+                                dataKey="valor" 
+                                fill="#64748b"
+                                radius={[0, 4, 4, 0]}
+                              />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="assimetria-analysis">
+                          <div className="assimetria-stats">
+                            <div className="assimetria-stat">
+                              <span className="stat-label">Perda Máxima (5%)</span>
+                              <span className="stat-value negative">{formatarValor(monteCarlo.percentis.p5)}</span>
+                            </div>
+                            <div className="assimetria-separator">vs</div>
+                            <div className="assimetria-stat">
+                              <span className="stat-label">Ganho Máximo (95%)</span>
+                              <span className="stat-value positive">{formatarValor(monteCarlo.percentis.p95)}</span>
+                            </div>
+                            <div className="assimetria-ratio">
+                              <span className="ratio-label">Ratio Risco-Retorno</span>
+                              <span className="ratio-value">
+                                {(Math.abs(monteCarlo.percentis.p95) / Math.abs(monteCarlo.percentis.p5)).toFixed(1)}:1
+                              </span>
+                            </div>
+                          </div>
+                          <div className="assimetria-insight">
+                            <p>
+                              <strong>Análise de Assimetria:</strong> {(() => {
+                                const ratio = Math.abs(monteCarlo.percentis.p95) / Math.abs(monteCarlo.percentis.p5);
+                                if (ratio > 3) {
+                                  return `Assimetria muito favorável - o ganho potencial é ${ratio.toFixed(1)}x maior que a perda máxima. Esta troca oferece excelente relação risco-retorno.`;
+                                } else if (ratio > 2) {
+                                  return `Assimetria favorável - o ganho potencial supera a perda máxima em ${ratio.toFixed(1)}x. Risco compensado pelo potencial de retorno.`;
+                                } else if (ratio > 1.5) {
+                                  return `Assimetria moderada - ganho potencial ${ratio.toFixed(1)}x maior que perda máxima. Risco equilibrado.`;
+                                } else {
+                                  return `Assimetria limitada - ganho e perda potenciais similares. Avaliar cuidadosamente o risco.`;
+                                }
+                              })()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="montecarlo-insights">
                       <div className="insight-section">
-                        <h4>🔍 Interpretação dos Resultados</h4>
+                        <h4>Interpretação dos Resultados</h4>
                         <p>
                           <strong>Análise de Probabilidade:</strong> Em {(monteCarlo.probabilidadeResultadoPositivo || 0).toFixed(0)}% dos cenários simulados, 
                           a estratégia proposta apresenta resultado superior à atual. O resultado esperado médio é de {formatarValor(monteCarlo.media)}.

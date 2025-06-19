@@ -1423,3 +1423,110 @@ body {
   transform: scale(1.05);
 }
 
+
+/* Estilos para Assimetria de Risco */
+.assimetria-analysis {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.assimetria-stats {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.assimetria-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  min-width: 120px;
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 1.25rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.stat-value.negative {
+  color: #dc2626;
+}
+
+.stat-value.positive {
+  color: #059669;
+}
+
+.assimetria-separator {
+  font-size: 1rem;
+  color: #64748b;
+  font-weight: 500;
+  padding: 0 1rem;
+}
+
+.assimetria-ratio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  min-width: 120px;
+}
+
+.ratio-label {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+.ratio-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1e293b;
+  text-align: center;
+}
+
+.assimetria-insight {
+  padding-top: 1.5rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.assimetria-insight p {
+  color: #475569;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Responsividade para assimetria */
+@media (max-width: 768px) {
+  .assimetria-stats {
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  
+  .assimetria-separator {
+    transform: rotate(90deg);
+    padding: 0;
+  }
+  
+  .assimetria-stat,
+  .assimetria-ratio {
+    width: 100%;
+    max-width: none;
+  }
+}
+
