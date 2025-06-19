@@ -1136,30 +1136,28 @@ function App() {
                           
                           {/* Box Plot SVG Customizado */}
                           <div className="boxplot-custom">
-                            <svg width="100%" height="300" viewBox="0 0 400 300">
+                            <svg width="100%" height="400" viewBox="0 0 400 400">
+                              {/* Grid de fundo */}
                               <defs>
                                 <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-                                  <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#e2e8f0" strokeWidth="1" strokeDasharray="2,2"/>
+                                  <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#f1f5f9" strokeWidth="1"/>
                                 </pattern>
                               </defs>
-                              
-                              {/* Grid de fundo */}
                               <rect width="100%" height="100%" fill="url(#grid)" />
                               
                               {/* Eixo Y */}
-                              <line x1="60" y1="40" x2="60" y2="260" stroke="#64748b" strokeWidth="1"/>
+                              <line x1="80" y1="50" x2="80" y2="350" stroke="#64748b" strokeWidth="2"/>
                               
-                              {/* Cálculo das posições Y */}
+                              {/* Cálculo das posições Y proporcionais */}
                               {(() => {
-                                const min = Math.min(monteCarlo.percentis.p5, monteCarlo.percentis.p95);
-                                const max = Math.max(monteCarlo.percentis.p5, monteCarlo.percentis.p95);
+                                const min = monteCarlo.percentis.p5;
+                                const max = monteCarlo.percentis.p95;
                                 const range = max - min;
-                                const padding = range * 0.1;
-                                const totalRange = range + 2 * padding;
                                 
+                                // Função para converter valor em posição Y (invertida)
                                 const getY = (value) => {
-                                  const normalized = (max + padding - value) / totalRange;
-                                  return 40 + normalized * 220;
+                                  const normalized = (value - min) / range;
+                                  return 350 - (normalized * 250); // 250px de altura útil
                                 };
                                 
                                 const y5 = getY(monteCarlo.percentis.p5);
@@ -1168,51 +1166,104 @@ function App() {
                                 const y75 = getY(monteCarlo.percentis.p75);
                                 const y95 = getY(monteCarlo.percentis.p95);
                                 
+                                // Largura da caixa proporcional à dispersão
+                                const boxWidth = 40;
+                                const centerX = 120;
+                                
                                 return (
                                   <g>
-                                    {/* Bigode inferior */}
-                                    <line x1="100" y1={y5} x2="100" y2={y25} stroke="#64748b" strokeWidth="2"/>
-                                    <line x1="85" y1={y5} x2="115" y2={y5} stroke="#64748b" strokeWidth="2"/>
+                                    {/* Bigode inferior (min até Q1) */}
+                                    <line 
+                                      x1={centerX} 
+                                      y1={y5} 
+                                      x2={centerX} 
+                                      y2={y25} 
+                                      stroke="#64748b" 
+                                      strokeWidth="2"
+                                    />
+                                    <line 
+                                      x1={centerX - 15} 
+                                      y1={y5} 
+                                      x2={centerX + 15} 
+                                      y2={y5} 
+                                      stroke="#64748b" 
+                                      strokeWidth="2"
+                                    />
                                     
-                                    {/* Caixa */}
+                                    {/* Caixa (Q1 até Q3) */}
                                     <rect 
-                                      x="85" 
+                                      x={centerX - boxWidth/2} 
                                       y={y75} 
-                                      width="30" 
+                                      width={boxWidth} 
                                       height={y25 - y75} 
-                                      fill="rgba(100, 116, 139, 0.1)" 
+                                      fill="rgba(100, 116, 139, 0.15)" 
                                       stroke="#64748b" 
                                       strokeWidth="2"
                                     />
                                     
                                     {/* Mediana */}
-                                    <line x1="85" y1={yMedian} x2="115" y2={yMedian} stroke="#1e293b" strokeWidth="3"/>
+                                    <line 
+                                      x1={centerX - boxWidth/2} 
+                                      y1={yMedian} 
+                                      x2={centerX + boxWidth/2} 
+                                      y2={yMedian} 
+                                      stroke="#1e293b" 
+                                      strokeWidth="3"
+                                    />
                                     
-                                    {/* Bigode superior */}
-                                    <line x1="100" y1={y75} x2="100" y2={y95} stroke="#64748b" strokeWidth="2"/>
-                                    <line x1="85" y1={y95} x2="115" y2={y95} stroke="#64748b" strokeWidth="2"/>
+                                    {/* Bigode superior (Q3 até max) */}
+                                    <line 
+                                      x1={centerX} 
+                                      y1={y75} 
+                                      x2={centerX} 
+                                      y2={y95} 
+                                      stroke="#64748b" 
+                                      strokeWidth="2"
+                                    />
+                                    <line 
+                                      x1={centerX - 15} 
+                                      y1={y95} 
+                                      x2={centerX + 15} 
+                                      y2={y95} 
+                                      stroke="#64748b" 
+                                      strokeWidth="2"
+                                    />
                                     
-                                    {/* Labels */}
-                                    <text x="125" y={y95 + 5} fontSize="12" fill="#64748b">Max (95%): {formatarValor(monteCarlo.percentis.p95)}</text>
-                                    <text x="125" y={y75 + 5} fontSize="12" fill="#64748b">Q3 (75%): {formatarValor(monteCarlo.percentis.p75)}</text>
-                                    <text x="125" y={yMedian + 5} fontSize="12" fill="#1e293b" fontWeight="bold">Mediana: {formatarValor(monteCarlo.mediana)}</text>
-                                    <text x="125" y={y25 + 5} fontSize="12" fill="#64748b">Q1 (25%): {formatarValor(monteCarlo.percentis.p25)}</text>
-                                    <text x="125" y={y5 + 5} fontSize="12" fill="#64748b">Min (5%): {formatarValor(monteCarlo.percentis.p5)}</text>
+                                    {/* Labels simplificados à direita */}
+                                    <text x={centerX + 60} y={y95 + 5} fontSize="11" fill="#64748b">
+                                      Max: {(monteCarlo.percentis.p95/1000).toFixed(0)}k
+                                    </text>
+                                    <text x={centerX + 60} y={y75 + 5} fontSize="11" fill="#64748b">
+                                      Q3: {(monteCarlo.percentis.p75/1000).toFixed(0)}k
+                                    </text>
+                                    <text x={centerX + 60} y={yMedian + 5} fontSize="11" fill="#1e293b" fontWeight="bold">
+                                      Mediana: {(monteCarlo.mediana/1000).toFixed(0)}k
+                                    </text>
+                                    <text x={centerX + 60} y={y25 + 5} fontSize="11" fill="#64748b">
+                                      Q1: {(monteCarlo.percentis.p25/1000).toFixed(0)}k
+                                    </text>
+                                    <text x={centerX + 60} y={y5 + 5} fontSize="11" fill="#64748b">
+                                      Min: {(monteCarlo.percentis.p5/1000).toFixed(0)}k
+                                    </text>
                                     
-                                    {/* Eixo Y com valores */}
-                                    <text x="45" y={y95 + 5} fontSize="10" fill="#64748b" textAnchor="end">{formatarValor(monteCarlo.percentis.p95)}</text>
-                                    <text x="45" y={y75 + 5} fontSize="10" fill="#64748b" textAnchor="end">{formatarValor(monteCarlo.percentis.p75)}</text>
-                                    <text x="45" y={yMedian + 5} fontSize="10" fill="#64748b" textAnchor="end">{formatarValor(monteCarlo.mediana)}</text>
-                                    <text x="45" y={y25 + 5} fontSize="10" fill="#64748b" textAnchor="end">{formatarValor(monteCarlo.percentis.p25)}</text>
-                                    <text x="45" y={y5 + 5} fontSize="10" fill="#64748b" textAnchor="end">{formatarValor(monteCarlo.percentis.p5)}</text>
+                                    {/* Escala do eixo Y (simplificada) */}
+                                    <text x="70" y={y95 + 5} fontSize="10" fill="#64748b" textAnchor="end">
+                                      {(monteCarlo.percentis.p95/1000).toFixed(0)}k
+                                    </text>
+                                    <text x="70" y={yMedian + 5} fontSize="10" fill="#64748b" textAnchor="end">
+                                      {(monteCarlo.mediana/1000).toFixed(0)}k
+                                    </text>
+                                    <text x="70" y={y5 + 5} fontSize="10" fill="#64748b" textAnchor="end">
+                                      {(monteCarlo.percentis.p5/1000).toFixed(0)}k
+                                    </text>
+                                    
+                                    {/* Título do eixo Y */}
+                                    <text x="25" y="200" fontSize="12" fill="#64748b" textAnchor="middle" transform="rotate(-90, 25, 200)">
+                                      Resultado (R$ mil)
+                                    </text>
                                   </g>
                                 );
                               })()}
-                              
-                              {/* Título do eixo Y */}
-                              <text x="20" y="150" fontSize="12" fill="#64748b" textAnchor="middle" transform="rotate(-90, 20, 150)">
-                                Resultado (R$)
-                              </text>
                             </svg>
                           </div>
                         </div>

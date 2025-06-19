@@ -1440,8 +1440,7 @@ body {
   padding: 1.5rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   border: 1px solid #e2e8f0;
-  height: fit-content;
-  min-height: 500px;
+  height: 600px;
   display: flex;
   flex-direction: column;
 }
@@ -1454,8 +1453,9 @@ body {
 /* Box Plot customizado */
 .boxplot-custom {
   position: relative;
-  margin-top: -300px;
+  margin-top: -400px;
   pointer-events: none;
+  flex-grow: 1;
 }
 
 .boxplot-custom svg {
