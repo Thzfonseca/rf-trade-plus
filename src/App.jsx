@@ -1043,18 +1043,91 @@ function App() {
                       </div>
                     </div>
 
-                    <div className="montecarlo-charts">
-                      <div className="chart-container">
-                        <h4>Distribuição de Resultados</h4>
-                        <ResponsiveContainer width="100%" height={300}>
-                          <BarChart data={monteCarlo.histograma}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="bin" tickFormatter={formatarValorMilhoes} />
-                            <YAxis />
-                            <Tooltip formatter={(value, name) => [value, 'Frequência']} />
-                            <Bar dataKey="frequencia" fill="#64748b" />
+                    <div className="montecarlo-charts montecarlo-charts-v20250620">
+                      <div className="chart-container chart-container-assimetria-v2025062018">
+                        <h4>Distribuição de Resultados - Escala Simétrica para Evidenciar Assimetria</h4>
+                        <ResponsiveContainer width="100%" height={400}>
+                          <BarChart 
+                            data={monteCarlo.histograma}
+                            margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                            <XAxis 
+                              dataKey="bin" 
+                              tickFormatter={formatarValorMilhoes}
+                              stroke="#64748b"
+                              fontSize={11}
+                              angle={-45}
+                              textAnchor="end"
+                              height={80}
+                              domain={(() => {
+                                // ESCALA FIXA SIMÉTRICA CENTRADA NA MÉDIA
+                                const media = monteCarlo.media;
+                                const p5 = monteCarlo.percentis.p5;
+                                const p95 = monteCarlo.percentis.p95;
+                                
+                                // Calcular a maior distância da média para qualquer extremo
+                                const distanciaP5 = Math.abs(media - p5);
+                                const distanciaP95 = Math.abs(p95 - media);
+                                const maiorDistancia = Math.max(distanciaP5, distanciaP95);
+                                
+                                // Criar escala simétrica
+                                const min = media - maiorDistancia;
+                                const max = media + maiorDistancia;
+                                
+                                return [min, max];
+                              })()}
+                              type="number"
+                              scale="linear"
+                            />
+                            <YAxis 
+                              stroke="#64748b"
+                              fontSize={12}
+                              label={{ value: 'Frequência', angle: -90, position: 'insideLeft' }}
+                            />
+                            <Tooltip 
+                              formatter={(value, name) => [value, 'Frequência']}
+                              labelFormatter={(value) => `Ganho: ${formatarValorMilhoes(value)}`}
+                              contentStyle={{
+                                backgroundColor: '#f8fafc',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '6px',
+                                fontSize: '13px'
+                              }}
+                            />
+                            <Bar 
+                              dataKey="frequencia" 
+                              fill="#64748b" 
+                              fillOpacity={0.8}
+                              stroke="#64748b"
+                              strokeWidth={1}
+                            />
+                            {/* LINHA DE REFERÊNCIA NA MÉDIA */}
+                            <ReferenceLine 
+                              x={monteCarlo.media} 
+                              stroke="#dc2626" 
+                              strokeWidth={2}
+                              strokeDasharray="5 5"
+                              label={{ value: "Média", position: "top" }}
+                            />
+                            {/* LINHA DE REFERÊNCIA NA MEDIANA */}
+                            <ReferenceLine 
+                              x={monteCarlo.mediana} 
+                              stroke="#16a34a" 
+                              strokeWidth={2}
+                              strokeDasharray="5 5"
+                              label={{ value: "Mediana", position: "bottom" }}
+                            />
                           </BarChart>
                         </ResponsiveContainer>
+                        <div className="chart-explanation">
+                          <p style={{fontSize: '12px', color: '#64748b', textAlign: 'center', marginTop: '10px'}}>
+                            <strong>Escala simétrica centrada na média para evidenciar assimetria das caudas.</strong><br/>
+                            <span style={{color: '#dc2626'}}>■ Média</span> | 
+                            <span style={{color: '#16a34a'}}> ■ Mediana</span> | 
+                            Diferença entre caudas mostra o perfil de risco/retorno
+                          </p>
+                        </div>
                       </div>
 
                       <div className="percentis-analysis">
