@@ -1045,27 +1045,17 @@ function App() {
 
                     <div className="montecarlo-charts montecarlo-charts-v20250620">
                       <div className="chart-container chart-container-assimetria-v2025062018">
-                        <div className="chart-header-with-copy">
+                        <div className="chart-header">
                           <h4>Distribuição de Resultados</h4>
                           <button 
-                            className="copy-chart-button"
-                            onClick={() => {
-                              // Copiar gráfico para área de transferência
-                              const chartElement = document.querySelector('.recharts-wrapper');
-                              if (chartElement) {
-                                html2canvas(chartElement).then(canvas => {
-                                  canvas.toBlob(blob => {
-                                    const item = new ClipboardItem({ 'image/png': blob });
-                                    navigator.clipboard.write([item]);
-                                  });
-                                });
-                              }
-                            }}
-                            title="Copiar gráfico para área de transferência"
+                            className="copy-chart-btn"
+                            onClick={() => copiarGrafico('distribuicao')}
+                            title="Copiar gráfico"
                           >
-                            📋 Copiar Gráfico
+                            📋
                           </button>
                         </div>
+                        <div id="chart-distribuicao">
                         <ResponsiveContainer width="100%" height={400}>
                           <BarChart 
                             data={monteCarlo.histograma}
@@ -1127,6 +1117,7 @@ function App() {
                             {/* REMOVIDO: Linhas de referência para média e mediana */}
                           </BarChart>
                         </ResponsiveContainer>
+                        </div>
                         <div className="chart-explanation">
                           <p style={{fontSize: '12px', color: '#64748b', textAlign: 'center', marginTop: '10px'}}>
                             <span className="color-legend">

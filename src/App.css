@@ -1563,23 +1563,21 @@ body {
   font-weight: 600;
 }
 
-.copy-chart-button {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  padding: 8px 16px;
-  font-size: 12px;
-  font-weight: 500;
+.copy-chart-btn {
+  background: none;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 6px 8px;
   cursor: pointer;
+  font-size: 14px;
+  color: #64748b;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
 }
 
-.copy-chart-button:hover {
-  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3);
+.copy-chart-btn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #475569;
 }
 
 .copy-chart-button:active {
