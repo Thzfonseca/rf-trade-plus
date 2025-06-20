@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine, BarChart, Bar, PieChart, Pie, Cell, RadialBarChart, RadialBar, AreaChart, Area, ComposedChart } from 'recharts';
-import { Analytics } from '@vercel/analytics/react';
 import './App.css';
 
 // Função para calcular valor presente
@@ -567,9 +566,6 @@ function App() {
       <header className="header">
         <div className="header-content">
           <h1>RF TRADE+</h1>
-          <div className="visit-counter">
-            <span className="visit-text">Visitas: {Math.floor(Math.random() * 1000) + 500}</span>
-          </div>
         </div>
       </header>
 
@@ -1304,7 +1300,6 @@ function App() {
           <p>Desenvolvido por Thomaz Fonseca</p>
         </div>
       </footer>
-      <Analytics />
     </div>
   );
 }
