@@ -1045,7 +1045,27 @@ function App() {
 
                     <div className="montecarlo-charts montecarlo-charts-v20250620">
                       <div className="chart-container chart-container-assimetria-v2025062018">
-                        <h4>Distribuição de Resultados - Escala Simétrica para Evidenciar Assimetria</h4>
+                        <div className="chart-header-with-copy">
+                          <h4>Distribuição de Resultados - Escala Simétrica para Evidenciar Assimetria</h4>
+                          <button 
+                            className="copy-chart-button"
+                            onClick={() => {
+                              // Copiar gráfico para área de transferência
+                              const chartElement = document.querySelector('.recharts-wrapper');
+                              if (chartElement) {
+                                html2canvas(chartElement).then(canvas => {
+                                  canvas.toBlob(blob => {
+                                    const item = new ClipboardItem({ 'image/png': blob });
+                                    navigator.clipboard.write([item]);
+                                  });
+                                });
+                              }
+                            }}
+                            title="Copiar gráfico para área de transferência"
+                          >
+                            📋 Copiar Gráfico
+                          </button>
+                        </div>
                         <ResponsiveContainer width="100%" height={400}>
                           <BarChart 
                             data={monteCarlo.histograma}
@@ -1096,11 +1116,13 @@ function App() {
                               }}
                             />
                             <Bar 
-                              dataKey="frequencia" 
-                              fill="#64748b" 
-                              fillOpacity={0.8}
-                              stroke="#64748b"
-                              strokeWidth={1}
+                              dataKey="frequencia"
+                              shape={(props) => {
+                                // CORES BASEADAS NO VALOR: VERDE PARA GANHO, VERMELHO PARA PERDA
+                                const { payload } = props;
+                                const color = payload.bin >= 0 ? '#16a34a' : '#dc2626';
+                                return <rect {...props} fill={color} fillOpacity={0.8} stroke="#64748b" strokeWidth={1} />;
+                              }}
                             />
                             {/* LINHA DE REFERÊNCIA NA MÉDIA */}
                             <ReferenceLine 
@@ -1123,9 +1145,20 @@ function App() {
                         <div className="chart-explanation">
                           <p style={{fontSize: '12px', color: '#64748b', textAlign: 'center', marginTop: '10px'}}>
                             <strong>Escala simétrica centrada na média para evidenciar assimetria das caudas.</strong><br/>
-                            <span style={{color: '#dc2626'}}>■ Média</span> | 
-                            <span style={{color: '#16a34a'}}> ■ Mediana</span> | 
-                            Diferença entre caudas mostra o perfil de risco/retorno
+                            <span className="color-legend">
+                              <span className="color-box green"></span>
+                              <span>Ganhos</span>
+                            </span>
+                            <span className="color-legend">
+                              <span className="color-box red"></span>
+                              <span>Perdas</span>
+                            </span>
+                            <span className="color-legend">
+                              <span style={{color: '#dc2626'}}>■ Média</span>
+                            </span>
+                            <span className="color-legend">
+                              <span style={{color: '#16a34a'}}>■ Mediana</span>
+                            </span>
                           </p>
                         </div>
                       </div>
@@ -1201,19 +1234,58 @@ function App() {
                         <div className="risk-card-header">TIPO DE ASSIMETRIA</div>
                         <div className="risk-card-value">
                           {(() => {
-                            // CORREÇÃO: Análise de assimetria baseada na distribuição real
-                            const skew = (monteCarlo.media - monteCarlo.mediana) / Math.abs(monteCarlo.mediana || 1);
-                            if (skew > 0.1) return 'Positiva';
-                            if (skew < -0.1) return 'Negativa';
-                            return 'Simétrica';
+                            // LÓGICA MELHORADA PARA ANÁLISE DE ASSIMETRIA
+                            const p5 = monteCarlo.percentis.p5;
+                            const p95 = monteCarlo.percentis.p95;
+                            const media = monteCarlo.media;
+                            const mediana = monteCarlo.mediana;
+                            const probGanho = monteCarlo.probabilidadeResultadoPositivo;
+                            
+                            // Calcular skewness baseado na diferença média-mediana
+                            const skew = (media - mediana) / Math.abs(mediana || 1);
+                            
+                            // Calcular ratio
+                            const ratio = p5 >= 0 ? (p95 / Math.max(p5, 1)) : (p95 / Math.abs(p5));
+                            
+                            // CRITÉRIOS ESTATÍSTICOS PARA CLASSIFICAÇÃO
+                            if (ratio > 5 && probGanho > 80 && skew > 0.05) {
+                              return 'Positivamente Assimétrico';
+                            } else if (ratio < 2 && probGanho < 60 && skew < -0.05) {
+                              return 'Negativamente Assimétrico';
+                            } else if (ratio >= 2 && ratio <= 5 && probGanho >= 60 && probGanho <= 80 && Math.abs(skew) <= 0.05) {
+                              return 'Simétrico';
+                            } else if (skew > 0.05) {
+                              return 'Positivamente Assimétrico';
+                            } else if (skew < -0.05) {
+                              return 'Negativamente Assimétrico';
+                            } else {
+                              return 'Simétrico';
+                            }
                           })()}
                         </div>
                         <div className="risk-card-description">
                           {(() => {
-                            const skew = (monteCarlo.media - monteCarlo.mediana) / Math.abs(monteCarlo.mediana || 1);
-                            if (skew > 0.1) return 'Distribuição equilibrada';
-                            if (skew < -0.1) return 'Cauda longa para perdas';
-                            return 'Cauda longa para ganhos altos';
+                            const p5 = monteCarlo.percentis.p5;
+                            const p95 = monteCarlo.percentis.p95;
+                            const media = monteCarlo.media;
+                            const mediana = monteCarlo.mediana;
+                            const probGanho = monteCarlo.probabilidadeResultadoPositivo;
+                            const skew = (media - mediana) / Math.abs(mediana || 1);
+                            const ratio = p5 >= 0 ? (p95 / Math.max(p5, 1)) : (p95 / Math.abs(p5));
+                            
+                            if (ratio > 5 && probGanho > 80 && skew > 0.05) {
+                              return 'Cauda longa para ganhos altos';
+                            } else if (ratio < 2 && probGanho < 60 && skew < -0.05) {
+                              return 'Cauda longa para perdas';
+                            } else if (ratio >= 2 && ratio <= 5 && probGanho >= 60 && probGanho <= 80 && Math.abs(skew) <= 0.05) {
+                              return 'Distribuição equilibrada';
+                            } else if (skew > 0.05) {
+                              return 'Maior potencial de ganhos extremos';
+                            } else if (skew < -0.05) {
+                              return 'Maior risco de perdas extremas';
+                            } else {
+                              return 'Distribuição equilibrada';
+                            }
                           })()}
                         </div>
                       </div>
