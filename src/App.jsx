@@ -903,6 +903,8 @@ function App() {
                                 tick={{ fontSize: 12 }}
                                 axisLine={{ stroke: '#64748b' }}
                                 tickFormatter={(value) => `R$ ${(value / 1000000).toFixed(1)}M`}
+                                domain={['dataMin', 'dataMax']}
+                                scale="linear"
                               />
                               <Tooltip 
                                 formatter={(value, name) => [formatarValor(value), name]}
@@ -969,6 +971,8 @@ function App() {
                                 tick={{ fontSize: 12 }}
                                 axisLine={{ stroke: '#64748b' }}
                                 tickFormatter={(value) => `${value.toFixed(1)}%`}
+                                domain={['dataMin', 'dataMax']}
+                                scale="linear"
                               />
                               <Tooltip 
                                 formatter={(value, name) => [`${value.toFixed(2)}%`, name]}
