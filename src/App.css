@@ -1722,18 +1722,19 @@ body {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  padding: 1rem;
+  padding: 0.75rem;
+  max-width: 400px;
 }
 
 .table-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .table-header h5 {
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: #1e293b;
   margin: 0;
@@ -1743,10 +1744,10 @@ body {
   background: none;
   border: 1px solid #e2e8f0;
   color: #64748b;
-  padding: 6px 8px;
+  padding: 4px 6px;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 12px;
   transition: all 0.2s ease;
 }
 
@@ -1758,14 +1759,14 @@ body {
 .premissas-table {
   width: 100%;
   border-collapse: collapse;
-  margin: 0.5rem 0;
-  font-size: 0.9rem;
+  margin: 0.25rem 0;
+  font-size: 0.8rem;
 }
 
 .premissas-table th,
 .premissas-table td {
-  padding: 0.75rem;
-  text-align: left;
+  padding: 0.4rem 0.6rem;
+  text-align: center;
   border-bottom: 1px solid #e2e8f0;
 }
 
@@ -1773,13 +1774,14 @@ body {
   background: #f1f5f9;
   font-weight: 600;
   color: #475569;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .premissas-table td {
   color: #64748b;
+  font-weight: 500;
 }
 
 .premissas-table tr:hover {
@@ -1787,10 +1789,11 @@ body {
 }
 
 .table-note {
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   color: #64748b;
   font-style: italic;
   margin-top: 0.5rem;
   margin-bottom: 0;
+  line-height: 1.3;
 }
 
