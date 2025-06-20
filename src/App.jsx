@@ -835,6 +835,16 @@ function App() {
                   <div className="resumo-content">
                     <div className="metrics-grid">
                       <div className="metric-card">
+                        <h4>Estratégia Atual</h4>
+                        <div className="metric-value">{formatarValor(resultados.valorFinalAtual)}</div>
+                        <div className="metric-label">Valor final projetado</div>
+                      </div>
+                      <div className="metric-card">
+                        <h4>Estratégia Proposta</h4>
+                        <div className="metric-value">{formatarValor(resultados.valorFinalProposto)}</div>
+                        <div className="metric-label">Valor final projetado</div>
+                      </div>
+                      <div className="metric-card">
                         <h4>Resultado Esperado</h4>
                         <div className="metric-value">{formatarValor(resultados.vantagem)}</div>
                         <div className="metric-label">Diferença em {horizonte} anos</div>
@@ -853,16 +863,6 @@ function App() {
                         <h4>Taxa de Equilíbrio</h4>
                         <div className="metric-value">{formatarPercentual(breakeven)}</div>
                         <div className="metric-label">Breakeven do ativo proposto</div>
-                      </div>
-                      <div className="metric-card">
-                        <h4>Estratégia Atual</h4>
-                        <div className="metric-value">{formatarValor(resultados.valorFinalAtual)}</div>
-                        <div className="metric-label">Valor final projetado</div>
-                      </div>
-                      <div className="metric-card">
-                        <h4>Estratégia Proposta</h4>
-                        <div className="metric-value">{formatarValor(resultados.valorFinalProposto)}</div>
-                        <div className="metric-label">Valor final projetado</div>
                       </div>
                       {monteCarlo && (
                         <div className="metric-card">
@@ -903,7 +903,7 @@ function App() {
                                 tick={{ fontSize: 12 }}
                                 axisLine={{ stroke: '#64748b' }}
                                 tickFormatter={(value) => `R$ ${(value / 1000000).toFixed(1)}M`}
-                                domain={['dataMin', 'dataMax']}
+                                domain={[(dataMin) => dataMin * 0.95, (dataMax) => dataMax * 1.05]}
                                 scale="linear"
                               />
                               <Tooltip 
@@ -971,7 +971,7 @@ function App() {
                                 tick={{ fontSize: 12 }}
                                 axisLine={{ stroke: '#64748b' }}
                                 tickFormatter={(value) => `${value.toFixed(1)}%`}
-                                domain={['dataMin', 'dataMax']}
+                                domain={[(dataMin) => dataMin * 0.95, (dataMax) => dataMax * 1.05]}
                                 scale="linear"
                               />
                               <Tooltip 
