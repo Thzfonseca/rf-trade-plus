@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine, BarChart, Bar, PieChart, Pie, Cell, RadialBarChart, RadialBar, AreaChart, Area, ComposedChart } from 'recharts';
+import { Analytics } from '@vercel/analytics/react';
 import './App.css';
 
 // Função para calcular valor presente
@@ -458,6 +459,7 @@ const formatarPercentual = (valor) => {
 };
 
 function App() {
+
   // Estados para premissas macroeconômicas
   const [premissas, setPremissas] = useState({
     cdi: [14, 12, 11, 10, 9],
@@ -1247,15 +1249,66 @@ function App() {
                         <strong>Resumo Executivo:</strong> Análise comparativa entre a estratégia atual 
                         ({ativoAtual.indexador.toUpperCase()} {formatarPercentual(ativoAtual.taxa)} por {ativoAtual.prazo} anos) 
                         e a oportunidade proposta ({ativoProposto.indexador.toUpperCase()} {formatarPercentual(ativoProposto.taxa)} por {ativoProposto.prazo} anos), 
-                        considerando horizonte de investimento de {horizonte} anos e valor inicial de {formatarValor(ativoAtual.valorInvestido)}.
+                        considerando horizonte de investimento de {horizonte} anos e valor inicial de {formatarValor(ativoAtual.valorInvestido)}. 
+                        A estratégia atual assume a premissa de reinvestimento indicada no momento da simulação para permitir 
+                        a comparação dos dois ativos na mesma janela de tempo de {horizonte} anos.
                       </p>
 
-                      <p>
-                        <strong>Resultados Determinísticos:</strong> Sob as premissas macroeconômicas estabelecidas 
-                        (CDI iniciando em {formatarPercentual(premissas.cdi[0])} e IPCA em {formatarPercentual(premissas.ipca[0])}), 
-                        a estratégia proposta apresenta resultado {resultados.vantagem > 0 ? 'superior' : 'inferior'} de {formatarValor(Math.abs(resultados.vantagem))} 
-                        ({formatarPercentual(Math.abs(resultados.vantagemAnualizada))} ao ano) em relação à estratégia atual.
-                      </p>
+                      <div className="analise-deterministica">
+                        <p><strong>Análise Determinística:</strong></p>
+                        <p>
+                          Sob as premissas macroeconômicas estabelecidas, a estratégia proposta apresenta resultado 
+                          {resultados.vantagem > 0 ? 'superior' : 'inferior'} de {formatarValor(Math.abs(resultados.vantagem))} 
+                          ({formatarPercentual(Math.abs(resultados.vantagemAnualizada))} ao ano) em relação à estratégia atual.
+                        </p>
+                        
+                        <div className="premissas-table-container">
+                          <div className="table-header">
+                            <h5>Premissas Macroeconômicas Utilizadas</h5>
+                            <button 
+                              className="copy-table-btn"
+                              onClick={() => {
+                                const tableData = [
+                                  ['Ano', 'CDI (%)', 'IPCA (%)'],
+                                  ...premissas.cdi.map((cdi, index) => [
+                                    `Ano ${index + 1}`,
+                                    `${cdi.toFixed(1)}%`,
+                                    `${premissas.ipca[index].toFixed(1)}%`
+                                  ])
+                                ];
+                                const tableText = tableData.map(row => row.join('\t')).join('\n');
+                                navigator.clipboard.writeText(tableText);
+                                alert('Tabela copiada! Cole no seu email ou documento.');
+                              }}
+                              title="Copiar tabela"
+                            >
+                              📋
+                            </button>
+                          </div>
+                          <table className="premissas-table">
+                            <thead>
+                              <tr>
+                                <th>Ano</th>
+                                <th>CDI (%)</th>
+                                <th>IPCA (%)</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {premissas.cdi.map((cdi, index) => (
+                                <tr key={index}>
+                                  <td>Ano {index + 1}</td>
+                                  <td>{cdi.toFixed(1)}%</td>
+                                  <td>{premissas.ipca[index].toFixed(1)}%</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          <p className="table-note">
+                            <em>Nota: Os dados do 6º ano em diante são extrapolados a partir do 5º ano para 
+                            manter consistência nas projeções de longo prazo.</em>
+                          </p>
+                        </div>
+                      </div>
 
                       {monteCarlo && (
                         <p>
@@ -1263,18 +1316,10 @@ function App() {
                           probabilidade de resultado superior de {formatarPercentual(monteCarlo.probabilidadeResultadoPositivo)}, 
                           com expectativa de resultado médio de {formatarValor(monteCarlo.media)}. 
                           A análise de risco (VaR 95%) indica que, no cenário adverso (5% das simulações), 
-                          o resultado pode ser desfavorável em até {formatarValor(Math.abs(monteCarlo.percentis.p5))}.
+                          o resultado pode ser desfavorável em até {formatarValor(Math.abs(monteCarlo.percentis.p5))}. 
+                          Por outro lado, nos 5% melhores cenários, o resultado pode alcançar até {formatarValor(monteCarlo.percentis.p95)}.
                         </p>
                       )}
-
-                      <p>
-                        <strong>Considerações sobre Reinvestimento:</strong> A análise considera reinvestimento 
-                        {ativoAtual.prazo < ativoProposto.prazo ? 
-                          `do ativo atual em ${ativoAtual.tipoReinvestimento.toUpperCase()} após ${ativoAtual.prazo} anos` :
-                          `do ativo proposto em CDI após ${ativoProposto.prazo} anos`
-                        } para equalizar o horizonte de investimento. As taxas de reinvestimento utilizadas refletem 
-                        condições de mercado esperadas para o período.
-                      </p>
 
                       <p>
                         <strong>Recomendação Técnica:</strong> {
@@ -1300,6 +1345,7 @@ function App() {
           <p>Desenvolvido por Thomaz Fonseca</p>
         </div>
       </footer>
+      <Analytics />
     </div>
   );
 }
