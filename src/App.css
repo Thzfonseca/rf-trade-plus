@@ -1691,3 +1691,23 @@ body {
   }
 }
 
+
+/* CSS PARA CONTADOR DE VISITAS */
+.visit-counter {
+  margin-top: 8px;
+}
+
+.visit-text {
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+/* Responsivo para contador */
+@media (max-width: 768px) {
+  .visit-text {
+    font-size: 12px;
+  }
+}
+
