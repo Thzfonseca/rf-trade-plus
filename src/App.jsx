@@ -1046,7 +1046,7 @@ function App() {
                     <div className="montecarlo-charts montecarlo-charts-v20250620">
                       <div className="chart-container chart-container-assimetria-v2025062018">
                         <div className="chart-header-with-copy">
-                          <h4>Distribuição de Resultados - Escala Simétrica para Evidenciar Assimetria</h4>
+                          <h4>Distribuição de Resultados</h4>
                           <button 
                             className="copy-chart-button"
                             onClick={() => {
@@ -1124,27 +1124,11 @@ function App() {
                                 return <rect {...props} fill={color} fillOpacity={0.8} stroke="#64748b" strokeWidth={1} />;
                               }}
                             />
-                            {/* LINHA DE REFERÊNCIA NA MÉDIA */}
-                            <ReferenceLine 
-                              x={monteCarlo.media} 
-                              stroke="#dc2626" 
-                              strokeWidth={2}
-                              strokeDasharray="5 5"
-                              label={{ value: "Média", position: "top" }}
-                            />
-                            {/* LINHA DE REFERÊNCIA NA MEDIANA */}
-                            <ReferenceLine 
-                              x={monteCarlo.mediana} 
-                              stroke="#16a34a" 
-                              strokeWidth={2}
-                              strokeDasharray="5 5"
-                              label={{ value: "Mediana", position: "bottom" }}
-                            />
+                            {/* REMOVIDO: Linhas de referência para média e mediana */}
                           </BarChart>
                         </ResponsiveContainer>
                         <div className="chart-explanation">
                           <p style={{fontSize: '12px', color: '#64748b', textAlign: 'center', marginTop: '10px'}}>
-                            <strong>Escala simétrica centrada na média para evidenciar assimetria das caudas.</strong><br/>
                             <span className="color-legend">
                               <span className="color-box green"></span>
                               <span>Ganhos</span>
@@ -1152,12 +1136,6 @@ function App() {
                             <span className="color-legend">
                               <span className="color-box red"></span>
                               <span>Perdas</span>
-                            </span>
-                            <span className="color-legend">
-                              <span style={{color: '#dc2626'}}>■ Média</span>
-                            </span>
-                            <span className="color-legend">
-                              <span style={{color: '#16a34a'}}>■ Mediana</span>
                             </span>
                           </p>
                         </div>
@@ -1203,100 +1181,27 @@ function App() {
                             <span className="percentil-value">{formatarPercentual(monteCarlo.percentisAnualizados.p95)}</span>
                           </div>
                         </div>
-                      </div>
-                    </div>
-
-                    {/* ANÁLISE DE ASSIMETRIA CORRIGIDA - MANTENDO LAYOUT APROVADO */}
-                    <div className="risk-analysis-cards">
-                      <div className="risk-card">
-                        <div className="risk-card-header">RATIO RISCO/RETORNO</div>
-                        <div className="risk-card-value">
-                          {(() => {
-                            // CORREÇÃO: Considerar sinais corretamente
-                            const p5 = monteCarlo.percentis.p5;
-                            const p95 = monteCarlo.percentis.p95;
-                            
-                            if (p5 >= 0) {
-                              // Se P5 é positivo, não há risco real de perda
-                              return `${(p95 / Math.max(p5, 1)).toFixed(1)}:1`;
-                            } else {
-                              // Se P5 é negativo, calcular ratio tradicional
-                              return `${(p95 / Math.abs(p5)).toFixed(1)}:1`;
-                            }
-                          })()}
-                        </div>
-                        <div className="risk-card-description">
-                          {monteCarlo.percentis.p5 >= 0 ? 'Sem risco de perda' : 'Ganho potencial vs perda máxima'}
-                        </div>
-                      </div>
-                      
-                      <div className="risk-card">
-                        <div className="risk-card-header">TIPO DE ASSIMETRIA</div>
-                        <div className="risk-card-value">
-                          {(() => {
-                            // LÓGICA MELHORADA PARA ANÁLISE DE ASSIMETRIA
-                            const p5 = monteCarlo.percentis.p5;
-                            const p95 = monteCarlo.percentis.p95;
-                            const media = monteCarlo.media;
-                            const mediana = monteCarlo.mediana;
-                            const probGanho = monteCarlo.probabilidadeResultadoPositivo;
-                            
-                            // Calcular skewness baseado na diferença média-mediana
-                            const skew = (media - mediana) / Math.abs(mediana || 1);
-                            
-                            // Calcular ratio
-                            const ratio = p5 >= 0 ? (p95 / Math.max(p5, 1)) : (p95 / Math.abs(p5));
-                            
-                            // CRITÉRIOS ESTATÍSTICOS PARA CLASSIFICAÇÃO
-                            if (ratio > 5 && probGanho > 80 && skew > 0.05) {
-                              return 'Positivamente Assimétrico';
-                            } else if (ratio < 2 && probGanho < 60 && skew < -0.05) {
-                              return 'Negativamente Assimétrico';
-                            } else if (ratio >= 2 && ratio <= 5 && probGanho >= 60 && probGanho <= 80 && Math.abs(skew) <= 0.05) {
-                              return 'Simétrico';
-                            } else if (skew > 0.05) {
-                              return 'Positivamente Assimétrico';
-                            } else if (skew < -0.05) {
-                              return 'Negativamente Assimétrico';
-                            } else {
-                              return 'Simétrico';
-                            }
-                          })()}
-                        </div>
-                        <div className="risk-card-description">
-                          {(() => {
-                            const p5 = monteCarlo.percentis.p5;
-                            const p95 = monteCarlo.percentis.p95;
-                            const media = monteCarlo.media;
-                            const mediana = monteCarlo.mediana;
-                            const probGanho = monteCarlo.probabilidadeResultadoPositivo;
-                            const skew = (media - mediana) / Math.abs(mediana || 1);
-                            const ratio = p5 >= 0 ? (p95 / Math.max(p5, 1)) : (p95 / Math.abs(p5));
-                            
-                            if (ratio > 5 && probGanho > 80 && skew > 0.05) {
-                              return 'Cauda longa para ganhos altos';
-                            } else if (ratio < 2 && probGanho < 60 && skew < -0.05) {
-                              return 'Cauda longa para perdas';
-                            } else if (ratio >= 2 && ratio <= 5 && probGanho >= 60 && probGanho <= 80 && Math.abs(skew) <= 0.05) {
-                              return 'Distribuição equilibrada';
-                            } else if (skew > 0.05) {
-                              return 'Maior potencial de ganhos extremos';
-                            } else if (skew < -0.05) {
-                              return 'Maior risco de perdas extremas';
-                            } else {
-                              return 'Distribuição equilibrada';
-                            }
-                          })()}
-                        </div>
-                      </div>
-                      
-                      <div className="risk-card">
-                        <div className="risk-card-header">PROBABILIDADE DE GANHO</div>
-                        <div className="risk-card-value">
-                          {(monteCarlo.probabilidadeResultadoPositivo || 0).toFixed(1)}%
-                        </div>
-                        <div className="risk-card-description">
-                          Cenários com resultado superior
+                        
+                        {/* MÉTRICAS ADICIONAIS NO CARD DE PERCENTIS */}
+                        <div className="percentis-additional-metrics">
+                          <div className="metric-item">
+                            <span className="metric-label">Ratio Risco/Retorno</span>
+                            <span className="metric-value">
+                              {(() => {
+                                const p5 = monteCarlo.percentis.p5;
+                                const p95 = monteCarlo.percentis.p95;
+                                if (p5 >= 0) {
+                                  return `${(p95 / Math.max(p5, 1)).toFixed(1)}:1`;
+                                } else {
+                                  return `${(p95 / Math.abs(p5)).toFixed(1)}:1`;
+                                }
+                              })()}
+                            </span>
+                          </div>
+                          <div className="metric-item">
+                            <span className="metric-label">Probabilidade de Ganho</span>
+                            <span className="metric-value">{(monteCarlo.probabilidadeResultadoPositivo || 0).toFixed(1)}%</span>
+                          </div>
                         </div>
                       </div>
                     </div>

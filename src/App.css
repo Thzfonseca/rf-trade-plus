@@ -1564,7 +1564,7 @@ body {
 }
 
 .copy-chart-button {
-  background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
   color: white;
   border: none;
   border-radius: 6px;
@@ -1573,13 +1573,13 @@ body {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
 }
 
 .copy-chart-button:hover {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3);
 }
 
 .copy-chart-button:active {
@@ -1644,6 +1644,52 @@ body {
     align-self: flex-end;
     font-size: 11px;
     padding: 6px 12px;
+  }
+}
+
+
+/* CSS PARA MÉTRICAS ADICIONAIS NO CARD DE PERCENTIS */
+
+.percentis-additional-metrics {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid #e2e8f0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+.metric-item {
+  text-align: center;
+}
+
+.metric-label {
+  display: block;
+  font-size: 11px;
+  color: #64748b;
+  margin-bottom: 6px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.metric-value {
+  display: block;
+  font-size: 18px;
+  font-weight: bold;
+  color: #1e293b;
+  line-height: 1.2;
+}
+
+/* Responsividade para métricas */
+@media (max-width: 768px) {
+  .percentis-additional-metrics {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .metric-value {
+    font-size: 16px;
   }
 }
 
